@@ -1,0 +1,394 @@
+/**
+ * SYSTÈME DE DESIGN - Suivi de Conformité ISO 27001 / NIS2-ANSSI
+ * Variables CSS complètes et prêtes à l'emploi
+ * À placer dans votre global.css ou main.scss
+ */
+
+:root {
+  /* ========================================
+     COULEURS PRIMAIRES
+     ======================================== */
+  --primary-900: #051627;    /* Texte fort sur fond clair */
+  --primary-800: #0F3460;    /* En-têtes, navigation principale */
+  --primary-700: #1B5E8F;    /* Boutons, liens */
+  --primary-600: #2779B9;    /* Hover buttons */
+  --primary-500: #3491D6;    /* Focus states */
+  --primary-200: #BCDAFF;
+  --primary-100: #E0ECFF;
+  --primary-50: #F0F6FC;
+
+  /* ========================================
+     COULEURS SECONDAIRES
+     ======================================== */
+  --secondary-900: #2C1810;
+  --secondary-800: #5C2E1F;
+  --secondary-700: #8C472E;
+  --secondary-600: #BC613D;
+  --secondary-500: #E97A4C;
+
+  /* ========================================
+     ACCENTUATION
+     ======================================== */
+  --accent-dark: #C23C2A;       /* Hover accent sombre */
+  --accent: #E94B3C;             /* Accent principal, CTA, alertes */
+  --accent-light: #F26B5E;       /* Hover accent clair */
+  --accent-lighter: #F5917F;    /* Backgrounds accentués clairs */
+
+  /* ========================================
+     COULEURS DE STATUT
+     ======================================== */
+  --success: #27AE60;            /* Succès */
+  --success-light: #D5F4E6;      /* Fond succès clair */
+  --warning: #F39C12;            /* Avertissement */
+  --warning-light: #FCE5D5;      /* Fond avertissement clair */
+  --error: #E74C3C;              /* Erreur */
+  --error-light: #FADBD8;        /* Fond erreur clair */
+  --info: #3498DB;               /* Information */
+  --info-light: #D6EAF8;         /* Fond info clair */
+
+  /* ========================================
+     COULEURS NEUTRES (GRISES)
+     ======================================== */
+  --neutral-50: #F8F9FA;         /* Backgrounds très clairs */
+  --neutral-100: #E9ECEF;        /* Hover backgrounds */
+  --neutral-200: #DEE2E6;        /* Borders, dividers */
+  --neutral-300: #CED4DA;        /* Disabled, subtle */
+  --neutral-400: #ADB5BD;        /* Texte très pâle */
+  --neutral-500: #6C757D;        /* Texte secondaire */
+  --neutral-600: #495057;        /* Texte corps standard */
+  --neutral-700: #343A40;        /* Texte secondaire fort */
+  --neutral-800: #212529;        /* Texte principal */
+  --neutral-900: #0D1117;        /* Texte très fort */
+
+  /* ========================================
+     COULEURS - MODE SOMBRE (FUTURE)
+     ======================================== */
+  --dark-bg-primary: #0D1117;
+  --dark-bg-secondary: #161B22;
+  --dark-bg-tertiary: #21262D;
+  --dark-text-primary: #F0F6FC;
+  --dark-text-secondary: #8B949E;
+
+  /* ========================================
+     OMBRES
+     ======================================== */
+  --shadow-xs: 0 1px 2px rgba(15, 52, 96, 0.05);
+  --shadow-sm: 0 2px 4px rgba(15, 52, 96, 0.08);
+  --shadow-md: 0 2px 8px rgba(15, 52, 96, 0.1);
+  --shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
+  --shadow-xl: 0 20px 40px rgba(15, 52, 96, 0.2);
+
+  /* ========================================
+     ESPACEMENTS (Base 4px)
+     ======================================== */
+  --space-xs: 4px;               /* Micro espacements */
+  --space-sm: 8px;               /* Petit espacement */
+  --space-md: 12px;              /* Espacement moyen */
+  --space-base: 16px;            /* Espacement standard */
+  --space-lg: 20px;              /* Grand espacement */
+  --space-xl: 24px;              /* Très grand espacement */
+  --space-2xl: 32px;             /* Espacement XL */
+  --space-3xl: 40px;             /* Espacement XXL */
+  --space-4xl: 48px;             /* Espacement XXXL */
+  --space-5xl: 64px;             /* Espacement énorme */
+  --space-6xl: 80px;             /* Espacement maximal */
+
+  /* ========================================
+     TYPOGRAPHIE
+     ======================================== */
+  --font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  --font-family-mono: 'Courier New', 'Courier', monospace;
+
+  /* Font sizes */
+  --font-size-h1: 2rem;          /* 32px */
+  --font-size-h2: 1.75rem;       /* 28px */
+  --font-size-h3: 1.25rem;       /* 20px */
+  --font-size-subtitle: 1.125rem; /* 18px */
+  --font-size-body: 1rem;        /* 16px */
+  --font-size-body-small: 0.95rem; /* 15px */
+  --font-size-small: 0.875rem;   /* 14px */
+  --font-size-tiny: 0.75rem;     /* 12px */
+
+  /* Font weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line heights */
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.3;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.5;
+  --line-height-comfortable: 1.6;
+
+  /* Letter spacing */
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-subtle: -0.01em;
+  --letter-spacing-normal: 0em;
+  --letter-spacing-wide: 0.05em;
+  --letter-spacing-wider: 0.1em;
+
+  /* ========================================
+     BORDER RADIUS
+     ======================================== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ========================================
+     TRANSITIONS
+     ======================================== */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --transition-slower: 0.5s ease;
+
+  /* ========================================
+     Z-INDEX (Stacking context)
+     ======================================== */
+  --z-hide: -1;
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-tooltip: 600;
+  --z-notification: 700;
+}
+
+/* Mode sombre : hors périmètre du MVP (bloc retiré). */
+
+/* ========================================
+   UTILITY CLASSES (Optionnel)
+   ======================================== */
+
+/* Text utilities */
+.text-h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.text-h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-subtle);
+}
+
+.text-h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.text-body {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-comfortable);
+}
+
+.text-small {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-relaxed);
+}
+
+.text-tiny {
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Color utilities */
+.text-primary {
+  color: var(--primary-800);
+}
+
+.text-secondary {
+  color: var(--neutral-600);
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-error {
+  color: var(--error);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-info {
+  color: var(--info);
+}
+
+.bg-primary {
+  background-color: var(--primary-800);
+  color: white;
+}
+
+.bg-accent {
+  background-color: var(--accent);
+  color: white;
+}
+
+.bg-success {
+  background-color: var(--success-light);
+  color: var(--success);
+}
+
+.bg-error {
+  background-color: var(--error-light);
+  color: var(--error);
+}
+
+.bg-warning {
+  background-color: var(--warning-light);
+  color: var(--warning);
+}
+
+.bg-info {
+  background-color: var(--info-light);
+  color: var(--info);
+}
+
+/* Spacing utilities */
+.p-xs  { padding: var(--space-xs); }
+.p-sm  { padding: var(--space-sm); }
+.p-md  { padding: var(--space-md); }
+.p-base { padding: var(--space-base); }
+.p-lg  { padding: var(--space-lg); }
+.p-xl  { padding: var(--space-xl); }
+.p-2xl { padding: var(--space-2xl); }
+.p-3xl { padding: var(--space-3xl); }
+
+.m-xs  { margin: var(--space-xs); }
+.m-sm  { margin: var(--space-sm); }
+.m-md  { margin: var(--space-md); }
+.m-base { margin: var(--space-base); }
+.m-lg  { margin: var(--space-lg); }
+.m-xl  { margin: var(--space-xl); }
+.m-2xl { margin: var(--space-2xl); }
+.m-3xl { margin: var(--space-3xl); }
+
+.gap-xs  { gap: var(--space-xs); }
+.gap-sm  { gap: var(--space-sm); }
+.gap-md  { gap: var(--space-md); }
+.gap-base { gap: var(--space-base); }
+.gap-lg  { gap: var(--space-lg); }
+.gap-xl  { gap: var(--space-xl); }
+.gap-2xl { gap: var(--space-2xl); }
+
+/* Shadow utilities */
+.shadow-xs { box-shadow: var(--shadow-xs); }
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
+
+/* Border radius utilities */
+.rounded-sm   { border-radius: var(--radius-sm); }
+.rounded-md   { border-radius: var(--radius-md); }
+.rounded-lg   { border-radius: var(--radius-lg); }
+.rounded-xl   { border-radius: var(--radius-xl); }
+.rounded-2xl  { border-radius: var(--radius-2xl); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* Component shortcuts */
+.button {
+  padding: var(--space-md) var(--space-lg);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-body-small);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.button-primary {
+  background-color: var(--primary-800);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.button-primary:hover {
+  background-color: var(--primary-700);
+  box-shadow: var(--shadow-md);
+}
+
+.button-accent {
+  background-color: var(--accent);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.button-accent:hover {
+  background-color: var(--accent-light);
+  box-shadow: var(--shadow-md);
+}
+
+.card {
+  background: white;
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.input {
+  padding: var(--space-md);
+  font-size: var(--font-size-body);
+  border: 1px solid var(--neutral-300);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family-system);
+  transition: all var(--transition-base);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary-700);
+  box-shadow: 0 0 0 3px rgba(27, 94, 143, 0.1);
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.badge-success {
+  background-color: var(--success-light);
+  color: var(--success);
+}
+
+.badge-error {
+  background-color: var(--error-light);
+  color: var(--error);
+}
+
+.badge-warning {
+  background-color: var(--warning-light);
+  color: var(--warning);
+}
+
+.badge-info {
+  background-color: var(--info-light);
+  color: var(--info);
+}

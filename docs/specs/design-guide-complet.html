@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide de Design - Suivi de Conformité ISO 27001</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Couleurs Primaires */
+            --primary-900: #051627;
+            --primary-800: #0F3460;
+            --primary-700: #1B5E8F;
+            --primary-600: #2779B9;
+            --primary-500: #3491D6;
+            
+            /* Couleurs Secondaires */
+            --secondary-900: #2C1810;
+            --secondary-800: #5C2E1F;
+            --secondary-700: #8C472E;
+            --secondary-600: #BC613D;
+            --secondary-500: #E97A4C;
+            
+            /* Accentuation */
+            --accent-dark: #C23C2A;
+            --accent: #E94B3C;
+            --accent-light: #F26B5E;
+            --accent-lighter: #F5917F;
+            
+            /* Statuts */
+            --success: #27AE60;
+            --success-light: #D5F4E6;
+            --warning: #F39C12;
+            --warning-light: #FCE5D5;
+            --error: #E74C3C;
+            --error-light: #FADBD8;
+            --info: #3498DB;
+            --info-light: #D6EAF8;
+            
+            /* Neutres - Mode Clair */
+            --neutral-50: #F8F9FA;
+            --neutral-100: #E9ECEF;
+            --neutral-200: #DEE2E6;
+            --neutral-300: #CED4DA;
+            --neutral-400: #ADB5BD;
+            --neutral-500: #6C757D;
+            --neutral-600: #495057;
+            --neutral-700: #343A40;
+            --neutral-800: #212529;
+            --neutral-900: #0D1117;
+            
+            /* Neutres - Mode Sombre */
+            --dark-bg-primary: #0D1117;
+            --dark-bg-secondary: #161B22;
+            --dark-bg-tertiary: #21262D;
+            --dark-text-primary: #F0F6FC;
+            --dark-text-secondary: #8B949E;
+            
+            /* Ombres */
+            --shadow-xs: 0 1px 2px rgba(15, 52, 96, 0.05);
+            --shadow-sm: 0 2px 4px rgba(15, 52, 96, 0.08);
+            --shadow-md: 0 2px 8px rgba(15, 52, 96, 0.1);
+            --shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
+            --shadow-xl: 0 20px 40px rgba(15, 52, 96, 0.2);
+            
+            /* Espacements */
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 12px;
+            --space-base: 16px;
+            --space-lg: 20px;
+            --space-xl: 24px;
+            --space-2xl: 32px;
+            --space-3xl: 40px;
+            --space-4xl: 48px;
+            --space-5xl: 64px;
+            --space-6xl: 80px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, var(--neutral-50) 0%, #EBF0F7 100%);
+            color: var(--neutral-900);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: var(--space-2xl);
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-800) 0%, var(--primary-700) 100%);
+            color: white;
+            padding: var(--space-3xl) var(--space-2xl);
+            border-radius: 12px;
+            margin-bottom: var(--space-3xl);
+            box-shadow: var(--shadow-lg);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: var(--space-base);
+            letter-spacing: -0.02em;
+        }
+
+        header p {
+            font-size: 1.125rem;
+            opacity: 0.95;
+            line-height: 1.5;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-2xl);
+            border-bottom: 2px solid var(--neutral-200);
+            padding-bottom: var(--space-md);
+        }
+
+        .nav-tabs button {
+            background: none;
+            border: none;
+            padding: var(--space-md) var(--space-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--neutral-600);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -var(--space-md);
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs button:hover {
+            color: var(--primary-700);
+        }
+
+        .nav-tabs button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: var(--space-2xl);
+            margin-bottom: var(--space-2xl);
+            box-shadow: var(--shadow-md);
+        }
+
+        .section h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-800);
+            margin-bottom: var(--space-lg);
+            padding-bottom: var(--space-lg);
+            border-bottom: 2px solid var(--neutral-100);
+            letter-spacing: -0.01em;
+        }
+
+        .section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-700);
+            margin-top: var(--space-2xl);
+            margin-bottom: var(--space-lg);
+        }
+
+        .subsection {
+            margin-bottom: var(--space-2xl);
+        }
+
+        /* PALETTE DE COULEURS */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-2xl);
+        }
+
+        .color-box {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .color-sample {
+            height: 100px;
+            width: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: var(--space-base);
+            color: white;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .color-info {
+            padding: var(--space-base);
+            background: var(--neutral-50);
+            font-size: 0.875rem;
+        }
+
+        .color-info strong {
+            display: block;
+            color: var(--primary-700);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .color-info code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: block;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        /* TYPOGRAPHIE */
+        .typography-example {
+            margin-bottom: var(--space-xl);
+            padding: var(--space-lg);
+            background: var(--neutral-50);
+            border-left: 4px solid var(--accent);
+            border-radius: 4px;
+        }
+
+        .typography-example .label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--neutral-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-sm);
+        }
+
+        .typography-example .text {
+            font-size: 1rem;
+        }
+
+        .typography-example.h1 .text {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .typography-example.h2 .text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+        }
+
+        .typography-example.h3 .text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .typography-example.subtitle .text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .typography-example.body .text {
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .typography-example.body-small .text {
+            font-size: 0.95rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .typography-example.small .text {
+            font-size: 0.875rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .typography-example.tiny .text {
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.4;
+            letter-spacing: 0.05em;
+        }
+
+        .typography-spec {
+            margin-top: var(--space-md);
+            padding: var(--space-md);
+            background: white;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--neutral-600);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* ESPACEMENT */
+        .spacing-scale {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+        }
+
+        .spacing-item {
+            border: 1px solid var(--neutral-200);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .spacing-visual {
+            background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+            padding: var(--space-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+            position: relative;
+        }
+
+        .spacing-visual::before {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--primary-800);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .spacing-box {
+            background: var(--primary-700);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .spacing-info {
+            padding: var(--space-base);
+            background: var(--neutral-50);
+            font-size: 0.875rem;
+        }
+
+        .spacing-info strong {
+            display: block;
+            color: var(--primary-700);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .spacing-info code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: block;
+            margin-top: 4px;
+        }
+
+        /* STATUTS */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+        }
+
+        .status-item {
+            border: 1px solid var(--neutral-200);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .status-color {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.125rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .status-info {
+            padding: var(--space-base);
+            background: var(--neutral-50);
+            font-size: 0.875rem;
+        }
+
+        .status-info strong {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .status-info code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: block;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        /* COMPOSANTS */
+        .component-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-2xl);
+        }
+
+        .component {
+            border: 1px solid var(--neutral-200);
+            border-radius: 8px;
+            padding: var(--space-lg);
+            background: var(--neutral-50);
+        }
+
+        .component label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--neutral-600);
+            margin-bottom: var(--space-md);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            margin-bottom: var(--space-sm);
+            margin-right: var(--space-sm);
+        }
+
+        .btn-primary {
+            background: var(--primary-800);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-700);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--neutral-100);
+            color: var(--primary-800);
+            border: 1px solid var(--neutral-300);
+        }
+
+        .btn-secondary:hover {
+            background: var(--neutral-200);
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-accent:hover {
+            background: var(--accent-light);
+            box-shadow: var(--shadow-md);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .badge-success { background: var(--success-light); color: var(--success); }
+        .badge-error { background: var(--error-light); color: var(--error); }
+        .badge-warning { background: var(--warning-light); color: var(--warning); }
+        .badge-info { background: var(--info-light); color: var(--info); }
+
+        .input-field {
+            width: 100%;
+            padding: var(--space-md);
+            border: 1px solid var(--neutral-300);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+            margin-bottom: var(--space-md);
+            transition: border-color 0.2s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-700);
+            box-shadow: 0 0 0 3px rgba(27, 94, 143, 0.1);
+        }
+
+        footer {
+            text-align: center;
+            padding: var(--space-3xl) var(--space-2xl);
+            color: var(--neutral-600);
+            font-size: 0.95rem;
+        }
+
+        .code-block {
+            background: var(--neutral-900);
+            color: #E0E0E0;
+            padding: var(--space-lg);
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin: var(--space-lg) 0;
+        }
+
+        .copy-btn {
+            float: right;
+            padding: 6px 12px;
+            background: var(--primary-700);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .token {
+            background: var(--neutral-50);
+            padding: var(--space-md);
+            border-radius: 6px;
+            margin: var(--space-md) 0;
+            border-left: 3px solid var(--accent);
+        }
+
+        .token code {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--space-lg);
+            }
+
+            header h1 {
+                font-size: 1.75rem;
+            }
+
+            .color-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .spacing-scale {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 Guide de Design Exhaustif</h1>
+            <p>Suivi de Conformité ISO 27001 / NIS2-ANSSI | Système de design complet et maintenable</p>
+        </header>
+
+        <!-- TABS NAVIGATION -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-tab="colors">🎨 Couleurs</button>
+            <button class="tab-btn" data-tab="typography">✏️ Typographie</button>
+            <button class="tab-btn" data-tab="spacing">📏 Espacement</button>
+            <button class="tab-btn" data-tab="components">🧩 Composants</button>
+            <button class="tab-btn" data-tab="css">💻 CSS Variables</button>
+        </div>
+
+        <!-- TAB 1: COULEURS -->
+        <div id="colors" class="tab-content">
+            <div class="section">
+                <h2>🎨 Palette de Couleurs</h2>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Système de couleurs cohérent et accessible, optimisé pour confiance et professionnalisme
+                </p>
+
+                <h3>Couleurs Primaires</h3>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Couleurs principales pour la structure et la navigation de l'interface
+                </p>
+                <div class="color-grid">
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--primary-900);">Primary 900</div>
+                        <div class="color-info">
+                            <strong>Texte sur fond clair</strong>
+                            <code>#051627</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--primary-800);">Primary 800</div>
+                        <div class="color-info">
+                            <strong>En-têtes, navigation</strong>
+                            <code>#0F3460</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--primary-700);">Primary 700</div>
+                        <div class="color-info">
+                            <strong>Boutons, liens</strong>
+                            <code>#1B5E8F</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--primary-600);">Primary 600</div>
+                        <div class="color-info">
+                            <strong>Hover buttons</strong>
+                            <code>#2779B9</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--primary-500);">Primary 500</div>
+                        <div class="color-info">
+                            <strong>Focus states</strong>
+                            <code>#3491D6</code>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Couleurs d'Accentuation</h3>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Pour attirer l'attention sur les actions importantes et les alertes
+                </p>
+                <div class="color-grid">
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--accent-dark);">Accent Dark</div>
+                        <div class="color-info">
+                            <strong>Hover state accentué</strong>
+                            <code>#C23C2A</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--accent);">Accent</div>
+                        <div class="color-info">
+                            <strong>Boutons CTA, alertes</strong>
+                            <code>#E94B3C</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--accent-light);">Accent Light</div>
+                        <div class="color-info">
+                            <strong>Hover accentué</strong>
+                            <code>#F26B5E</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--accent-lighter);">Accent Lighter</div>
+                        <div class="color-info">
+                            <strong>Backgrounds clairs</strong>
+                            <code>#F5917F</code>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Couleurs de Statut</h3>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Pour communiquer l'état des éléments (succès, erreur, avertissement, info)
+                </p>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-color" style="background: var(--success);">✓ Succès</div>
+                        <div class="status-info">
+                            <strong>Succès</strong>
+                            <code>#27AE60</code><br><br>
+                            <strong>Fond clair</strong>
+                            <code>#D5F4E6</code>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-color" style="background: var(--error);">✕ Erreur</div>
+                        <div class="status-info">
+                            <strong>Erreur</strong>
+                            <code>#E74C3C</code><br><br>
+                            <strong>Fond clair</strong>
+                            <code>#FADBD8</code>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-color" style="background: var(--warning);">⚠ Avertissement</div>
+                        <div class="status-info">
+                            <strong>Avertissement</strong>
+                            <code>#F39C12</code><br><br>
+                            <strong>Fond clair</strong>
+                            <code>#FCE5D5</code>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-color" style="background: var(--info);">ℹ Info</div>
+                        <div class="status-info">
+                            <strong>Information</strong>
+                            <code>#3498DB</code><br><br>
+                            <strong>Fond clair</strong>
+                            <code>#D6EAF8</code>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Couleurs Neutres (Grises)</h3>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Palette neutre pour textes, backgrounds et éléments structurels
+                </p>
+                <div class="color-grid">
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-50); border: 1px solid var(--neutral-200); color: var(--neutral-900);">Neutral 50</div>
+                        <div class="color-info">
+                            <strong>Background très clair</strong>
+                            <code>#F8F9FA</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-100); border: 1px solid var(--neutral-200); color: var(--neutral-900);">Neutral 100</div>
+                        <div class="color-info">
+                            <strong>Hover backgrounds</strong>
+                            <code>#E9ECEF</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-200); color: white;">Neutral 200</div>
+                        <div class="color-info">
+                            <strong>Borders, dividers</strong>
+                            <code>#DEE2E6</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-300); color: white;">Neutral 300</div>
+                        <div class="color-info">
+                            <strong>Disabled, subtle</strong>
+                            <code>#CED4DA</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-500); color: white;">Neutral 500</div>
+                        <div class="color-info">
+                            <strong>Texte secondaire</strong>
+                            <code>#6C757D</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-600); color: white;">Neutral 600</div>
+                        <div class="color-info">
+                            <strong>Texte corps</strong>
+                            <code>#495057</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-800); color: white;">Neutral 800</div>
+                        <div class="color-info">
+                            <strong>Texte principal</strong>
+                            <code>#212529</code>
+                        </div>
+                    </div>
+                    <div class="color-box">
+                        <div class="color-sample" style="background: var(--neutral-900); color: white;">Neutral 900</div>
+                        <div class="color-info">
+                            <strong>Texte fort</strong>
+                            <code>#0D1117</code>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Recommandations de Contraste</h3>
+                <div class="token">
+                    <strong>✓ Contraste suffisant (WCAG AA)</strong>
+                    <ul style="margin-top: var(--space-md); margin-left: var(--space-lg);">
+                        <li>Texte blanc sur Primary 800+</li>
+                        <li>Texte blanc sur Accent</li>
+                        <li>Texte Neutral 900 sur Neutral 50</li>
+                        <li>Texte Neutral 600 sur Neutral 100</li>
+                        <li>Texte blanc sur Success/Error/Warning/Info</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: TYPOGRAPHIE -->
+        <div id="typography" class="tab-content hidden">
+            <div class="section">
+                <h2>✏️ Typographie</h2>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Système de typage cohérent basé sur les font system pour performances optimales
+                </p>
+
+                <h3>Familles de Polices</h3>
+                <div class="token">
+                    <strong>Principale (UI & Contenu) :</strong><br>
+                    <code>-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif</code>
+                    <p style="margin-top: var(--space-md);">Font system native pour chaque plateforme. Léger, rapide, lisible.</p>
+                </div>
+                <div class="token">
+                    <strong>Monospace (Code, Données) :</strong><br>
+                    <code>'Courier New', 'Courier', monospace</code>
+                    <p style="margin-top: var(--space-md);">Pour affichage code, valeurs HEX, tokens.</p>
+                </div>
+
+                <h3>Échelle de Tailles</h3>
+
+                <div class="typography-example h1">
+                    <div class="label">H1 - Titre principal</div>
+                    <div class="text">Tableau de bord - Conformité ISO 27001</div>
+                    <div class="typography-spec">2rem (32px) | Weight: 700 | Line Height: 1.2 | Letter Spacing: -0.02em</div>
+                </div>
+
+                <div class="typography-example h2">
+                    <div class="label">H2 - Titre de section</div>
+                    <div class="text">Inventaire des lacunes</div>
+                    <div class="typography-spec">1.75rem (28px) | Weight: 700 | Line Height: 1.3 | Letter Spacing: -0.01em</div>
+                </div>
+
+                <div class="typography-example h3">
+                    <div class="label">H3 - Titre de sous-section</div>
+                    <div class="text">Lacunes critiques</div>
+                    <div class="typography-spec">1.25rem (20px) | Weight: 600 | Line Height: 1.4</div>
+                </div>
+
+                <div class="typography-example subtitle">
+                    <div class="label">Subtitle - Sous-titre</div>
+                    <div class="text">Mise à jour le 24 septembre 2026 à 14:32</div>
+                    <div class="typography-spec">1.125rem (18px) | Weight: 500 | Line Height: 1.5</div>
+                </div>
+
+                <div class="typography-example body">
+                    <div class="label">Body - Texte principal</div>
+                    <div class="text">Le portail d'administration ne dispose pas d'authentification multi-facteurs, exposant les comptes administrateurs aux attaques de phishing et autres menaces.</div>
+                    <div class="typography-spec">1rem (16px) | Weight: 400 | Line Height: 1.6</div>
+                </div>
+
+                <div class="typography-example body-small">
+                    <div class="label">Body Small - Texte secondaire</div>
+                    <div class="text">Cette lacune affecte l'accès à des données sensibles et doit être traitée en priorité.</div>
+                    <div class="typography-spec">0.95rem (15px) | Weight: 400 | Line Height: 1.5</div>
+                </div>
+
+                <div class="typography-example small">
+                    <div class="label">Small - Texte petit</div>
+                    <div class="text">Créé par Alice le 15/02/2025 | Assigné à Bob</div>
+                    <div class="typography-spec">0.875rem (14px) | Weight: 400 | Line Height: 1.5</div>
+                </div>
+
+                <div class="typography-example tiny">
+                    <div class="label">Tiny - Label, badge</div>
+                    <div class="text">CRITIQUE • EN COURS • 30 JOURS</div>
+                    <div class="typography-spec">0.75rem (12px) | Weight: 500 | Line Height: 1.4 | Letter Spacing: 0.05em</div>
+                </div>
+
+                <h3>Poids de Police</h3>
+                <div class="token">
+                    <ul style="margin-left: var(--space-lg);">
+                        <li><strong>400 (Regular)</strong> - Corps, paragraphes, descriptions</li>
+                        <li><strong>500 (Medium)</strong> - Labels, labels de formulaire, petit texte important</li>
+                        <li><strong>600 (Semibold)</strong> - Titres h3, boutons, accents</li>
+                        <li><strong>700 (Bold)</strong> - Titres h1/h2, emphasis forte</li>
+                    </ul>
+                </div>
+
+                <h3>Hauteurs de Ligne (Line Height)</h3>
+                <div class="token">
+                    <ul style="margin-left: var(--space-lg);">
+                        <li><strong>1.2</strong> - Titres courts (h1)</li>
+                        <li><strong>1.3</strong> - Titres (h2)</li>
+                        <li><strong>1.4</strong> - Petits titres (h3), labels</li>
+                        <li><strong>1.5</strong> - Texte secondaire, petit texte</li>
+                        <li><strong>1.6</strong> - Corps principal (lisibilité optimale)</li>
+                    </ul>
+                </div>
+
+                <h3>Lettrage (Letter Spacing)</h3>
+                <div class="token">
+                    <ul style="margin-left: var(--space-lg);">
+                        <li><strong>-0.02em</strong> - H1 (rapprochement pour densité)</li>
+                        <li><strong>-0.01em</strong> - H2 (léger rapprochement)</li>
+                        <li><strong>0em (normal)</strong> - Corps, h3</li>
+                        <li><strong>0.05em</strong> - Labels, badges, petit texte majuscule</li>
+                        <li><strong>0.1em</strong> - Labels formulaire, muy petit texte</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: ESPACEMENT -->
+        <div id="spacing" class="tab-content hidden">
+            <div class="section">
+                <h2>📏 Système d'Espacement</h2>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Échelle d'espacement basée sur 4px pour cohérence et harmonie
+                </p>
+
+                <h3>Échelle Complète (4px base)</h3>
+                <div class="spacing-scale">
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="XS">
+                            <div class="spacing-box" style="width: 4px; height: 4px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>xs</strong>
+                            <code>4px</code>
+                            <p style="margin-top: var(--space-sm);">Micro espaces, très petit padding</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="SM">
+                            <div class="spacing-box" style="width: 8px; height: 40px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>sm</strong>
+                            <code>8px</code>
+                            <p style="margin-top: var(--space-sm);">Petit espacement, gaps mineurs</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="MD">
+                            <div class="spacing-box" style="width: 12px; height: 48px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>md</strong>
+                            <code>12px</code>
+                            <p style="margin-top: var(--space-sm);">Espacement moyen, padding input</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="BASE">
+                            <div class="spacing-box" style="width: 16px; height: 64px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>base</strong>
+                            <code>16px</code>
+                            <p style="margin-top: var(--space-sm);">Espacement standard, padding éléments</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="LG">
+                            <div class="spacing-box" style="width: 20px; height: 80px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>lg</strong>
+                            <code>20px</code>
+                            <p style="margin-top: var(--space-sm);">Espacement large, margins</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="XL">
+                            <div class="spacing-box" style="width: 24px; height: 96px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>xl</strong>
+                            <code>24px</code>
+                            <p style="margin-top: var(--space-sm);">Espacement XL, sections</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="2XL">
+                            <div class="spacing-box" style="width: 32px; height: 128px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>2xl</strong>
+                            <code>32px</code>
+                            <p style="margin-top: var(--space-sm);">Espacement double XL</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="3XL">
+                            <div class="spacing-box" style="width: 40px; height: 160px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>3xl</strong>
+                            <code>40px</code>
+                            <p style="margin-top: var(--space-sm);">Entre sections majeures</p>
+                        </div>
+                    </div>
+
+                    <div class="spacing-item">
+                        <div class="spacing-visual" data-label="4XL">
+                            <div class="spacing-box" style="width: 48px; height: 192px;"></div>
+                        </div>
+                        <div class="spacing-info">
+                            <strong>4xl</strong>
+                            <code>48px</code>
+                            <p style="margin-top: var(--space-sm);">Grands espacements</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Cas d'Usage Recommandés</h3>
+                <div class="token">
+                    <strong>Padding Buttons :</strong> <code>md (12px) vertical × lg (20px) horizontal</code>
+                </div>
+                <div class="token">
+                    <strong>Padding Card/Section :</strong> <code>xl (24px)</code>
+                </div>
+                <div class="token">
+                    <strong>Gap Grid/Flex :</strong> <code>lg (20px)</code>
+                </div>
+                <div class="token">
+                    <strong>Margin Entre Sections :</strong> <code>2xl (32px)</code>
+                </div>
+                <div class="token">
+                    <strong>Margin Entre Pages :</strong> <code>3xl (40px)</code>
+                </div>
+                <div class="token">
+                    <strong>Border Radius Buttons :</strong> <code>6px</code>
+                </div>
+                <div class="token">
+                    <strong>Border Radius Cards :</strong> <code>8-12px</code>
+                </div>
+                <div class="token">
+                    <strong>Border Radius Modales :</strong> <code>12-16px</code>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: COMPOSANTS -->
+        <div id="components" class="tab-content hidden">
+            <div class="section">
+                <h2>🧩 Composants & Patterns</h2>
+
+                <h3>Boutons</h3>
+                <div class="component-showcase">
+                    <div class="component">
+                        <label>Primary Button</label>
+                        <button class="btn btn-primary">Créer lacune</button>
+                        <button class="btn btn-primary" style="opacity: 0.5;">Désactivé</button>
+                    </div>
+                    <div class="component">
+                        <label>Secondary Button</label>
+                        <button class="btn btn-secondary">Annuler</button>
+                        <button class="btn btn-secondary" style="opacity: 0.5;">Désactivé</button>
+                    </div>
+                    <div class="component">
+                        <label>Accent Button (CTA)</label>
+                        <button class="btn btn-accent">Nouvelle implémentation</button>
+                        <button class="btn btn-accent" style="opacity: 0.5;">Désactivé</button>
+                    </div>
+                </div>
+
+                <div class="token">
+                    <strong>Specs Boutons :</strong><br>
+                    Padding: 12px 20px | Border Radius: 6px | Font Weight: 600 | Font Size: 0.95rem | Transition: 0.2s
+                </div>
+
+                <h3>Badges & Labels</h3>
+                <div class="component">
+                    <label style="margin-bottom: var(--space-lg);">Status Badges</label>
+                    <span class="badge badge-success">Validée</span>
+                    <span class="badge badge-error">Critique</span>
+                    <span class="badge badge-warning">En retard</span>
+                    <span class="badge badge-info">En cours</span>
+                </div>
+
+                <div class="token">
+                    <strong>Specs Badges :</strong><br>
+                    Padding: 4px 10px | Border Radius: 16px | Font Size: 0.75rem | Font Weight: 600 | Text Transform: uppercase
+                </div>
+
+                <h3>Input Fields</h3>
+                <div class="component">
+                    <label>Texte Input</label>
+                    <input type="text" class="input-field" placeholder="Chercher une lacune...">
+                    <label>Select</label>
+                    <select class="input-field">
+                        <option>Sélectionner une criticité...</option>
+                        <option>Critique</option>
+                        <option>Haute</option>
+                        <option>Moyenne</option>
+                        <option>Basse</option>
+                    </select>
+                    <label>Textarea</label>
+                    <textarea class="input-field" rows="4" placeholder="Description de la lacune..."></textarea>
+                </div>
+
+                <div class="token">
+                    <strong>Specs Input :</strong><br>
+                    Padding: 12px | Border: 1px solid #CED4DA | Border Radius: 6px | Font Size: 1rem | Focus: Border Color #1B5E8F + Box Shadow
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: CSS VARIABLES -->
+        <div id="css" class="tab-content hidden">
+            <div class="section">
+                <h2>💻 CSS Variables (Personnalisable)</h2>
+                <p style="margin-bottom: var(--space-lg); color: var(--neutral-600);">
+                    Copier et utiliser directement dans votre CSS. À mettre dans <code>:root {}</code>
+                </p>
+
+                <h3>Couleurs Primaires</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Couleurs Primaires */
+--primary-900: #051627;
+--primary-800: #0F3460;
+--primary-700: #1B5E8F;
+--primary-600: #2779B9;
+--primary-500: #3491D6;
+
+/* Couleurs d'Accentuation */
+--accent-dark: #C23C2A;
+--accent: #E94B3C;
+--accent-light: #F26B5E;
+--accent-lighter: #F5917F;
+                </div>
+
+                <h3>Couleurs de Statut</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Statuts */
+--success: #27AE60;
+--success-light: #D5F4E6;
+--warning: #F39C12;
+--warning-light: #FCE5D5;
+--error: #E74C3C;
+--error-light: #FADBD8;
+--info: #3498DB;
+--info-light: #D6EAF8;
+                </div>
+
+                <h3>Couleurs Neutres</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Neutres - Mode Clair */
+--neutral-50: #F8F9FA;
+--neutral-100: #E9ECEF;
+--neutral-200: #DEE2E6;
+--neutral-300: #CED4DA;
+--neutral-400: #ADB5BD;
+--neutral-500: #6C757D;
+--neutral-600: #495057;
+--neutral-700: #343A40;
+--neutral-800: #212529;
+--neutral-900: #0D1117;
+                </div>
+
+                <h3>Ombres</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Ombres */
+--shadow-xs: 0 1px 2px rgba(15, 52, 96, 0.05);
+--shadow-sm: 0 2px 4px rgba(15, 52, 96, 0.08);
+--shadow-md: 0 2px 8px rgba(15, 52, 96, 0.1);
+--shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
+--shadow-xl: 0 20px 40px rgba(15, 52, 96, 0.2);
+                </div>
+
+                <h3>Espacements</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Espacements (base 4px) */
+--space-xs: 4px;
+--space-sm: 8px;
+--space-md: 12px;
+--space-base: 16px;
+--space-lg: 20px;
+--space-xl: 24px;
+--space-2xl: 32px;
+--space-3xl: 40px;
+--space-4xl: 48px;
+--space-5xl: 64px;
+--space-6xl: 80px;
+                </div>
+
+                <h3>Utilisation en CSS</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* Utilisation */
+.button {
+  background: var(--primary-800);
+  color: white;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+}
+
+.button:hover {
+  background: var(--primary-700);
+  box-shadow: var(--shadow-lg);
+}
+
+.status-success {
+  background: var(--success-light);
+  color: var(--success);
+  padding: var(--space-md);
+  border-radius: 6px;
+}
+
+.card {
+  background: white;
+  padding: var(--space-xl);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-2xl);
+}
+                </div>
+
+                <h3>Utilisation en Tailwind (si applicable)</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+/* tailwind.config.js */
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#F0F6FC',
+          100: '#E0ECFF',
+          500: '#3491D6',
+          600: '#2779B9',
+          700: '#1B5E8F',
+          800: '#0F3460',
+          900: '#051627',
+        },
+        accent: '#E94B3C',
+        success: '#27AE60',
+        warning: '#F39C12',
+        error: '#E74C3C',
+      },
+      spacing: {
+        xs: '4px',
+        sm: '8px',
+        md: '12px',
+        base: '16px',
+        lg: '20px',
+        xl: '24px',
+        '2xl': '32px',
+        '3xl': '40px',
+        '4xl': '48px',
+      },
+      boxShadow: {
+        xs: '0 1px 2px rgba(15, 52, 96, 0.05)',
+        sm: '0 2px 4px rgba(15, 52, 96, 0.08)',
+        md: '0 2px 8px rgba(15, 52, 96, 0.1)',
+        lg: '0 8px 24px rgba(15, 52, 96, 0.15)',
+        xl: '0 20px 40px rgba(15, 52, 96, 0.2)',
+      },
+    },
+  },
+};
+                </div>
+
+                <h3>Utilisation en SCSS (Si applicable)</h3>
+                <div class="code-block">
+                    <button class="copy-btn">Copier</button>
+// _variables.scss
+$primary-800: #0F3460;
+$primary-700: #1B5E8F;
+$accent: #E94B3C;
+$success: #27AE60;
+$error: #E74C3C;
+
+$space-xs: 4px;
+$space-sm: 8px;
+$space-md: 12px;
+$space-base: 16px;
+$space-lg: 20px;
+$space-xl: 24px;
+
+$shadow-md: 0 2px 8px rgba(15, 52, 96, 0.1);
+$shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
+
+// _buttons.scss
+.btn-primary {
+  background: $primary-800;
+  color: white;
+  padding: $space-md $space-lg;
+  border-radius: 6px;
+  box-shadow: $shadow-md;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $primary-700;
+    box-shadow: $shadow-lg;
+  }
+}
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🎨 Guide de Design Exhaustif | Suivi de Conformité ISO 27001 / NIS2-ANSSI</p>
+            <p>Généré le 24 septembre 2026 | Système de design maintenable et cohérent</p>
+            <p style="margin-top: var(--space-lg); font-size: 0.9rem;">
+                Ce guide de design fournit une base solide pour votre application. 
+                Adaptez-le selon vos besoins spécifiques et maintenez la cohérence à travers tous vos projets.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                
+                // Hide all tabs
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+                
+                // Remove active class
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                
+                // Show selected tab
+                document.getElementById(tab).classList.remove('hidden');
+                btn.classList.add('active');
+            });
+        });
+
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const code = this.nextElementSibling.textContent;
+                navigator.clipboard.writeText(code).then(() => {
+                    this.textContent = '✓ Copié';
+                    setTimeout(() => {
+                        this.textContent = 'Copier';
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

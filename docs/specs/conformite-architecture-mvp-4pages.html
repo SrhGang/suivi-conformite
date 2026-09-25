@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture UX/UI MVP - 4 Pages - Suivi de Conformité ISO 27001 / NIS2-ANSSI</title>
+    <style>
+        :root {
+            --primary: #0F3460;
+            --primary-light: #1B5E8F;
+            --accent: #E94B3C;
+            --accent-light: #F26B5E;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --error: #E74C3C;
+            --neutral-50: #F8F9FA;
+            --neutral-100: #E9ECEF;
+            --neutral-300: #CED4DA;
+            --neutral-600: #495057;
+            --neutral-900: #212529;
+            --bg-light: #FFFFFF;
+            --shadow: 0 2px 8px rgba(15, 52, 96, 0.1);
+            --shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #F8F9FA 0%, #EBF0F7 100%);
+            color: var(--neutral-900);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 40px 30px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .badge-mvp {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .toc {
+            background: var(--bg-light);
+            border-left: 4px solid var(--accent);
+            padding: 30px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        .toc h2 {
+            color: var(--primary);
+            font-size: 1.3em;
+            margin-bottom: 20px;
+        }
+
+        .toc ul {
+            list-style: none;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: var(--primary-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .toc a:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .page {
+            background: var(--bg-light);
+            margin-bottom: 50px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 30px;
+            border-bottom: 4px solid var(--accent);
+        }
+
+        .page-header h2 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .page-header p {
+            font-size: 0.95em;
+            opacity: 0.95;
+            margin-bottom: 8px;
+        }
+
+        .page-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 35px;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--neutral-100);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .content-block {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: var(--neutral-50);
+            border-radius: 8px;
+            border-left: 3px solid var(--primary-light);
+        }
+
+        .content-block strong {
+            color: var(--primary);
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.05em;
+        }
+
+        .component-card {
+            background: white;
+            border: 1px solid var(--neutral-300);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .component-card-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .component-card-desc {
+            font-size: 0.9em;
+            color: var(--neutral-600);
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge-critical {
+            background: #FDE8E8;
+            color: var(--error);
+        }
+
+        .badge-important {
+            background: #E8F4F8;
+            color: #0F5F87;
+        }
+
+        ul, ol {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        thead {
+            background: var(--primary);
+            color: white;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--neutral-300);
+        }
+
+        th {
+            font-weight: 600;
+            background: var(--primary);
+            color: white;
+        }
+
+        tbody tr:hover {
+            background: var(--neutral-50);
+        }
+
+        .state-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .state-loading { background: #E3F2FD; color: #1976D2; }
+        .state-error { background: #FFEBEE; color: #D32F2F; }
+        .state-empty { background: #FFF3E0; color: #F57C00; }
+        .state-success { background: #E8F5E9; color: #388E3C; }
+
+        .wireframe {
+            background: var(--neutral-50);
+            border: 2px dashed var(--neutral-300);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.85em;
+            line-height: 1.4;
+            color: var(--neutral-600);
+        }
+
+        .action-list {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .action-list li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .action-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .navigation-flow {
+            background: var(--neutral-50);
+            border: 1px solid var(--neutral-300);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .flow-item {
+            display: inline-block;
+            background: white;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        .flow-arrow {
+            color: var(--accent);
+            font-weight: bold;
+            margin: 0 4px;
+        }
+
+        .highlight {
+            background: #FFF3E0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--warning);
+            margin: 20px 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--neutral-600);
+            font-size: 0.9em;
+        }
+
+        .page-break {
+            page-break-after: always;
+            margin-bottom: 60px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .toc {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Architecture UX/UI MVP</h1>
+            <p>Suivi de Conformité ISO 27001 / NIS2-ANSSI</p>
+            <span class="badge-mvp">4 Pages Essentielles</span>
+            <p style="font-size: 0.95em; margin-top: 15px; opacity: 0.85;">Couverture minimale viable pour démarrer — Dashboard, Inventaire, Détail, Roadmap</p>
+        </header>
+
+        <div class="toc">
+            <h2>📑 Les 4 Pages du MVP</h2>
+            <ul>
+                <li><a href="#page-1">Page 1 : Dashboard / Accueil</a></li>
+                <li><a href="#page-2">Page 2 : Inventaire des lacunes</a></li>
+                <li><a href="#page-3">Page 3 : Détail d'une lacune</a></li>
+                <li><a href="#page-4">Page 4 : Roadmap de conformité</a></li>
+            </ul>
+        </div>
+
+        <!-- PAGE 1: DASHBOARD -->
+        <div id="page-1" class="page page-break">
+            <div class="page-header">
+                <h2>Page 1 : Dashboard / Accueil</h2>
+                <p><strong>URL :</strong> /dashboard ou /</p>
+            </div>
+            <div class="page-content">
+                <div class="section">
+                    <div class="section-title">Objectif</div>
+                    <div class="content-block">
+                        Fournir une vue synthétique de l'état global de conformité. Page d'accueil qui affiche les KPI principaux, les alertes critiques, et permet de naviguer rapidement vers les 3 autres pages.
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Structure de la mise en page (Layout)</div>
+                    <div class="content-block">
+                        <strong>En-tête :</strong> Logo, titre "Suivi de Conformité ISO 27001 / NIS2-ANSSI", date de dernière mise à jour<br><br>
+                        <strong>Barre de navigation :</strong> 4 boutons/liens : Tableau de bord, Lacunes, Détail, Roadmap (ou menu hamburger mobile)<br><br>
+                        <strong>Zone principale :</strong> Grille de KPI (4 cartes) + Bloc alertes critiques + Graphique de progression simplifiée<br><br>
+                        <strong>Pied de page :</strong> Dernière synchronisation, version, lien aide
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Composants clés</div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">🎯 4 Cartes KPI</div>
+                            <div class="component-card-desc">Score global (%) | Lacunes identifiées (nb) | Implémentations en cours (nb) | Domaines conformes (nb/14)</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📊 Graphique de progression</div>
+                            <div class="component-card-desc">Donut chart simple montrant % de conformité global + 3-4 barres de domaines majeurs</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">⚠️ Bloc "Alertes prioritaires"</div>
+                            <div class="component-card-desc">Liste 3-5 lacunes critiques ou implémentations en retard, avec badges rouge/orange</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">🚀 Bloc "Actions rapides"</div>
+                            <div class="component-card-desc">Boutons : Nouvelle lacune, Voir roadmap, Afficher toutes lacunes, Exporter rapport</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Éléments interactifs</div>
+                    <ul class="action-list">
+                        <li>Cliquer sur une KPI → Navigue vers Page 2 (Lacunes) avec filtres appliqués</li>
+                        <li>Cliquer sur une alerte → Navigue vers Page 3 (Détail lacune)</li>
+                        <li>Bouton "Nouvelle lacune" → Ouvre modale de création (ou redirige Page 2)</li>
+                        <li>Bouton "Voir roadmap" → Navigue vers Page 4</li>
+                        <li>Menu navigation → Bascule entre les 4 pages principales</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Navigation</div>
+                    <div class="navigation-flow">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Arrivée :</strong> Page par défaut (/), lien "Accueil" depuis autres pages
+                        </div>
+                        <div>
+                            <strong>Sortie :</strong> Menu nav (Lacunes → Page 2) | Alerte (Détail → Page 3) | Roadmap (→ Page 4)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Contenu</div>
+                    <ul>
+                        <li><strong>Titre :</strong> "Tableau de bord - Conformité ISO 27001 / NIS2-ANSSI"</li>
+                        <li><strong>Sous-titre :</strong> "Dernière mise à jour : 24/09/2026 14:32"</li>
+                        <li><strong>KPI 1 :</strong> "Score global : 45%"</li>
+                        <li><strong>KPI 2 :</strong> "Lacunes identifiées : 23"</li>
+                        <li><strong>KPI 3 :</strong> "Implémentations en cours : 8"</li>
+                        <li><strong>KPI 4 :</strong> "Domaines conformes : 2/14"</li>
+                        <li><strong>Alertes exemples :</strong> "🔴 MFA non configurée - Criticité haute" | "🟠 Sauvegardes non testées"</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">États de la page</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>État</th>
+                                <th>Affichage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="state-badge state-loading">Loading</span></td>
+                                <td>Skeleton des KPI et graphiques, spinner</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-empty">Première utilisation</span></td>
+                                <td>Message : "Commencez par créer un audit initial" + Bouton "Nouvelle lacune"</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-success">Données chargées</span></td>
+                                <td>Dashboard complet avec KPI, graphiques, alertes</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-error">Erreur chargement</span></td>
+                                <td>Banneau rouge : "Erreur de connexion. Veuillez réessayer" + Bouton retry</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Wireframe ASCII</div>
+                    <div class="wireframe">
+┌────────────────────────────────────────────────────────────────┐
+│ 🔒 Conformité ISO 27001 | [Accueil] [Lacunes] [Détail] [Roadmap]│
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  Score   │ Lacunes  │ En cours │ Conformes                    │
+│   45%    │   23     │    8     │   2/14                       │
+│                                                                │
+│  ┌──────────────────────────┐  ┌─────────────────────────┐   │
+│  │  Progression (Donut)     │  │  Actions rapides        │   │
+│  │                          │  │  □ Nouvelle lacune      │   │
+│  │   45% global             │  │  □ Voir roadmap         │   │
+│  │                          │  │  □ Toutes lacunes       │   │
+│  └──────────────────────────┘  └─────────────────────────┘   │
+│                                                                │
+│  ⚠️  Alertes prioritaires                                     │
+│  🔴 MFA non configurée (Critique)                            │
+│  🟠 Sauvegardes non testées (Haute)                          │
+│  🟡 Chiffrement données (Moyenne)                            │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 2: INVENTAIRE DES LACUNES -->
+        <div id="page-2" class="page page-break">
+            <div class="page-header">
+                <h2>Page 2 : Inventaire des lacunes</h2>
+                <p><strong>URL :</strong> /gaps ou /lacunes</p>
+            </div>
+            <div class="page-content">
+                <div class="section">
+                    <div class="section-title">Objectif</div>
+                    <div class="content-block">
+                        Afficher la liste complète des lacunes identifiées. Permettre filtrage, recherche, tri, création, et accès rapide au détail de chaque lacune.
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Structure de la mise en page (Layout)</div>
+                    <div class="content-block">
+                        <strong>En-tête :</strong> Titre "Inventaire des lacunes", compteur total, score global<br><br>
+                        <strong>Barre d'outils :</strong> Champ recherche (full-text) + Filtres dropdown (Criticité, Domaine, Statut) + Bouton "Nouvelle lacune"<br><br>
+                        <strong>Zone de contenu :</strong> Tableau affichant : ID | Titre | Domaine | Criticité (badge) | Statut | Créé | Actions<br><br>
+                        <strong>Pagination :</strong> 20 lacunes par page
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Composants clés</div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">🔍 Barre de recherche</div>
+                            <div class="component-card-desc">Recherche full-text. Placeholder : "Chercher une lacune (MFA, chiffrement, etc.)"</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📌 Filtres (3 dropdowns)</div>
+                            <div class="component-card-desc">Criticité (Critique/Haute/Moyenne/Basse) | Domaine (9 domaines ISO) | Statut (Non traitée/En cours/Corrigée/Validée)</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📋 Tableau des lacunes</div>
+                            <div class="component-card-desc">Colonnes : ID | Titre | Domaine | Criticité (badge couleur) | Statut | Date création | Menu (...)</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">➕ Bouton "Nouvelle lacune"</div>
+                            <div class="component-card-desc">Ouvre une modale ou navigue vers Page 3 en mode création</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Éléments interactifs</div>
+                    <ul class="action-list">
+                        <li>Taper dans recherche → Filtre en temps réel la liste</li>
+                        <li>Cliquer filtre → Applique le filtre, met à jour le compteur</li>
+                        <li>Cliquer sur une lacune (titre) → Navigue vers Page 3 (Détail)</li>
+                        <li>Cliquer en-tête colonne (Titre, Domaine, etc.) → Tri ascendant/descendant</li>
+                        <li>Menu "..." sur lacune → Options : Dupliquer, Archiver, Supprimer</li>
+                        <li>Pagination → Naviguer entre pages</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Navigation</div>
+                    <div class="navigation-flow">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Arrivée :</strong> Menu nav "Lacunes", Dashboard (clic KPI)
+                        </div>
+                        <div>
+                            <strong>Sortie :</strong> Clic lacune → Page 3, Menu nav → autres pages
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Contenu</div>
+                    <ul>
+                        <li><strong>Titre :</strong> "Inventaire des lacunes"</li>
+                        <li><strong>Compteur :</strong> "23 lacunes | Critiques: 5 | Hautes: 8 | Moyennes: 7 | Basses: 3"</li>
+                        <li><strong>Exemples de titres :</strong>
+                            <ul style="margin-top: 8px;">
+                                <li>GAP-001: "MFA non configurée sur portail admin"</li>
+                                <li>GAP-002: "Chiffrement données non activé en transit"</li>
+                                <li>GAP-003: "Pas de plan de sauvegarde testé"</li>
+                            </ul>
+                        </li>
+                        <li><strong>Badges statut :</strong> "Critique" (rouge) | "Haute" (orange) | "Moyenne" (jaune) | "Basse" (bleu)</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">États de la page</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>État</th>
+                                <th>Affichage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="state-badge state-loading">Loading</span></td>
+                                <td>Skeleton du tableau</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-empty">Aucune lacune</span></td>
+                                <td>Message : "Aucune lacune trouvée. Créer la première →" + Bouton "Nouvelle lacune"</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-empty">Filtre aucun résultat</span></td>
+                                <td>Message : "Aucune lacune ne correspond aux filtres"</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-success">Données chargées</span></td>
+                                <td>Tableau complet avec pagination</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Wireframe ASCII</div>
+                    <div class="wireframe">
+┌─────────────────────────────────────────────────────────────┐
+│ Inventaire des lacunes (23)                                 │
+├─────────────────────────────────────────────────────────────┤
+│ 🔍 [Chercher...]  [Criticité ▼] [Domaine ▼] [Statut ▼]    │
+│                                      [+ Nouvelle lacune]    │
+├─────────────────────────────────────────────────────────────┤
+│ ID      │ Titre              │ Domaine │ Crit. │ Statut      │
+├─────────┼────────────────────┼─────────┼───────┼─────────────┤
+│ GAP-001 │ MFA admin          │ Accès   │ 🔴    │ En cours    │
+│ GAP-002 │ TLS données        │ Crypto  │ 🟠    │ Non traitée │
+│ GAP-003 │ Sauvegarde test    │ Ops     │ 🟠    │ En cours    │
+│ GAP-004 │ Audit log config   │ Monit.  │ 🟡    │ Planifié    │
+│         │                    │         │       │             │
+│ [◀ 1 2 ▶]                                                   │
+└─────────────────────────────────────────────────────────────┘
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: DÉTAIL D'UNE LACUNE -->
+        <div id="page-3" class="page page-break">
+            <div class="page-header">
+                <h2>Page 3 : Détail d'une lacune</h2>
+                <p><strong>URL :</strong> /gaps/:id ou /lacunes/:id</p>
+            </div>
+            <div class="page-content">
+                <div class="section">
+                    <div class="section-title">Objectif</div>
+                    <div class="content-block">
+                        Afficher tous les détails d'une lacune, permettre son édition, associer des implémentations, et suivre la preuve de conformité / résolution.
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Structure de la mise en page (Layout)</div>
+                    <div class="content-block">
+                        <strong>En-tête :</strong> Titre lacune, ID, badges (criticité, statut)<br><br>
+                        <strong>Zone gauche (70%) :</strong> Onglets | Détails | Implémentations | Preuve & Validation<br><br>
+                        <strong>Panneau droit (30%) :</strong> Métadonnées (Créé par, Domaine, Assigné à), boutons Actions (Éditer, Dupliquer, Archiver)<br><br>
+                        <strong>Contenu principal :</strong> Formulaire/affichage selon onglet actif
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Composants clés</div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📋 Onglet "Détails"</div>
+                            <div class="component-card-desc">Affichage/édition : Titre | Description | Domaine ISO | Criticité | Statut | Règle NIS2/ANSSI | Impact potentiel | Délai résolution</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">🔗 Onglet "Implémentations"</div>
+                            <div class="component-card-desc">Liste des actions pour corriger lacune. Chaque implémentation : Titre | Statut | % Avancement | Date cible | Lien vers Page 4</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">✅ Onglet "Preuve & Validation"</div>
+                            <div class="component-card-desc">Upload/lien vers documents prouvant la conformité : Screenshot | Certificat | Rapport audit | Signature responsable</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📝 Bouton "Éditer"</div>
+                            <div class="component-card-desc">Permet éditer champs en modal ou in-place. Buttons: Sauvegarder, Annuler</div>
+                        </div>
+                        <span class="badge badge-important">Important</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📄 Panneau métadonnées</div>
+                            <div class="component-card-desc">Créé par | Date création | Assigné à | Dernier modifié par | Date modif</div>
+                        </div>
+                        <span class="badge badge-important">Important</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Éléments interactifs</div>
+                    <ul class="action-list">
+                        <li>Bouton "Éditer" → Ouvre formulaire édition en modal ou in-place</li>
+                        <li>Cliquer onglet → Bascule entre Détails, Implémentations, Preuve</li>
+                        <li>Cliquer implémentation → Navigue vers Page 4 ou affiche inline</li>
+                        <li>Bouton "Ajouter implémentation" → Ouvre formulaire création lié à cette lacune</li>
+                        <li>Upload fichier preuve → Ajoute pièce jointe avec date/uploader</li>
+                        <li>Change statut (dropdown) → Sauvegarde automatiquement</li>
+                        <li>Bouton "Dupliquer" → Crée copie de la lacune</li>
+                        <li>Bouton "Archiver" → Soft delete (marque archivée)</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Navigation</div>
+                    <div class="navigation-flow">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Arrivée :</strong> Clic lacune depuis Page 2, ou lien direct /gaps/GAP-001
+                        </div>
+                        <div>
+                            <strong>Sortie :</strong> Bouton "Retour" → Page 2, Implémentation → Page 4
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Contenu</div>
+                    <ul>
+                        <li><strong>Titre :</strong> "GAP-001 : MFA non configurée sur portail admin"</li>
+                        <li><strong>Description :</strong> "Le portail d'administration ne dispose pas d'authentification multi-facteurs, exposant les comptes admins aux attaques de phishing."</li>
+                        <li><strong>Domaine :</strong> "Gestion des accès (A.9)"</li>
+                        <li><strong>Criticité :</strong> "Critique"</li>
+                        <li><strong>Statut :</strong> "En cours"</li>
+                        <li><strong>Règle :</strong> "NIS2 Article 20, ANSSI - Mesure 1.1"</li>
+                        <li><strong>Impact :</strong> "Accès non autorisé aux données sensibles, compromission infrastructure"</li>
+                        <li><strong>Délai cible :</strong> "30 jours"</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">États de la page</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>État</th>
+                                <th>Affichage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="state-badge state-loading">Loading</span></td>
+                                <td>Skeleton du formulaire</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-error">404</span></td>
+                                <td>Message : "Lacune non trouvée" + lien retour Page 2</td>
+                            </tr>
+                            <tr>
+                                <td>En édition</td>
+                                <td>Champs modifiables, boutons Sauvegarder/Annuler visibles</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-success">Sauvegarde réussie</span></td>
+                                <td>Toast vert : "Lacune mise à jour"</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-error">Erreur sauvegarde</span></td>
+                                <td>Toast rouge : "Erreur sauvegarde" + Bouton retry</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Wireframe ASCII</div>
+                    <div class="wireframe">
+┌─────────────────────────────────────────────────────────────┐
+│ ← GAP-001: MFA admin       [🔴 Critique] [En cours]        │
+├────────────────────────────────────┬────────────────────────┤
+│ [Détails] [Implem.] [Preuve]      │ Créé par: Alice        │
+│                                    │ 15/02/2025             │
+│ Titre: MFA non configurée...      │ Assigné à: Bob         │
+│ Description: Le portail...        │                        │
+│ Domaine: Accès (A.9)              │ [✏️  Éditer]           │
+│ Criticité: Critique               │ [⋯  Dupliquer]         │
+│ Statut: [En cours ▼]              │ [⋯  Archiver]          │
+│ Règle NIS2: Article 20            │                        │
+│ Impact: Accès non autorisé        │                        │
+│ Délai: 30 jours                   │                        │
+│                                    │                        │
+│ Implémentations:                  │                        │
+│ • IMP-001: Déployer MFA (60%)     │                        │
+│   [Détail →]                      │                        │
+│                                    │                        │
+│ [+ Ajouter implémentation]        │                        │
+│                                    │                        │
+│ Preuve:                           │                        │
+│ 📄 preuve_mfa.pdf (2.4 MB)        │                        │
+│ [+ Upload preuve]                 │                        │
+└────────────────────────────────────┴────────────────────────┘
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4: ROADMAP DE CONFORMITÉ -->
+        <div id="page-4" class="page">
+            <div class="page-header">
+                <h2>Page 4 : Roadmap de conformité</h2>
+                <p><strong>URL :</strong> /roadmap ou /planification</p>
+            </div>
+            <div class="page-content">
+                <div class="section">
+                    <div class="section-title">Objectif</div>
+                    <div class="content-block">
+                        Afficher un plan d'action hiérarchisé montrant les implémentations à mettre en place pour corriger les lacunes, avec priorités, délais et statut de progression.
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Structure de la mise en page (Layout)</div>
+                    <div class="content-block">
+                        <strong>En-tête :</strong> "Roadmap de conformité", période (ex: Q1 2025 → Q4 2025)<br><br>
+                        <strong>Barre d'outils :</strong> Bouton "Vue Gantt / Kanban", filtres (Criticité, Domaine), sélecteur période<br><br>
+                        <strong>Vue Gantt (défaut) :</strong> Timeline horizontale montrant implémentations avec dates cibles, jalons<br><br>
+                        <strong>Vue Kanban (alt.) :</strong> Colonnes (À faire | En cours | Bloqué | Validé) avec cartes des implémentations<br><br>
+                        <strong>Légende :</strong> Couleurs par statut et criticité
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Composants clés</div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📊 Timeline Gantt</div>
+                            <div class="component-card-desc">Graphique temporel : Implémentation | Barre durée (colorée par statut) | Date début/fin | % Avancement. Cliquer pour détails</div>
+                        </div>
+                        <span class="badge badge-critical">Essentiel</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📅 Jalons (Milestones)</div>
+                            <div class="component-card-desc">Marqueurs de dates importantes : Fin Q1 (30% conformité) | Fin Q2 (60%) | Fin Q3 (100%)</div>
+                        </div>
+                        <span class="badge badge-important">Important</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">📈 Vue Kanban (alternative)</div>
+                            <div class="component-card-desc">4 colonnes : À faire | En cours | Bloqué | Validé. Cartes drag-drop avec titre, criticité, date cible</div>
+                        </div>
+                        <span class="badge badge-important">Important</span>
+                    </div>
+                    <div class="component-card">
+                        <div>
+                            <div class="component-card-title">🎯 Indicateurs de criticité</div>
+                            <div class="component-card-desc">Couleurs barres : Rouge (Critique) | Orange (Haute) | Jaune (Moyenne) | Bleu (Basse)</div>
+                        </div>
+                        <span class="badge badge-important">Important</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Éléments interactifs</div>
+                    <ul class="action-list">
+                        <li>Cliquer barre Gantt → Affiche détails implémentation</li>
+                        <li>Glisser barre Gantt → Modifie date cible (inline edit)</li>
+                        <li>Cliquer en-tête colonne Gantt → Change sens tri (date)</li>
+                        <li>Bouton "Vue Gantt/Kanban" → Bascule entre représentations</li>
+                        <li>Drag-drop en Kanban → Change statut implémentation</li>
+                        <li>Filtrer par criticité → Cache/affiche tâches correspondantes</li>
+                        <li>Sélectionner période → Recharge roadmap pour plage sélectionnée</li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Navigation</div>
+                    <div class="navigation-flow">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Arrivée :</strong> Menu nav "Roadmap", Dashboard (bouton "Voir roadmap")
+                        </div>
+                        <div>
+                            <strong>Sortie :</strong> Clic implémentation → Détails (dans Page 3 ou modal) | Menu nav → autres pages
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Contenu</div>
+                    <ul>
+                        <li><strong>Titre :</strong> "Roadmap de conformité ISO 27001 / NIS2-ANSSI"</li>
+                        <li><strong>Sous-titre :</strong> "Plan d'action : Janvier 2025 → Décembre 2025"</li>
+                        <li><strong>Jalons visibles :</strong>
+                            <ul style="margin-top: 8px;">
+                                <li>"Fin Q1 (31/03) : 30% conformité"</li>
+                                <li>"Fin Q2 (30/06) : 60% conformité"</li>
+                                <li>"Fin Q3 (30/09) : 100% conformité"</li>
+                            </ul>
+                        </li>
+                        <li><strong>Implémentations exemples :</strong>
+                            <ul style="margin-top: 8px;">
+                                <li>IMP-001: "Déployer Vault" (Crypto | Q1) ████░ 60%</li>
+                                <li>IMP-002: "Activer MFA" (Accès | Q1) ███░░ 50%</li>
+                                <li>IMP-003: "Audit SIEM" (Ops | Q2) ░░░░░ 0%</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">États de la page</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>État</th>
+                                <th>Affichage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="state-badge state-loading">Loading</span></td>
+                                <td>Skeleton Gantt chart</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-empty">Aucune implémentation</span></td>
+                                <td>Message : "Aucune implémentation planifiée. Créer la première depuis Page 3"</td>
+                            </tr>
+                            <tr>
+                                <td><span class="state-badge state-success">Roadmap chargée</span></td>
+                                <td>Timeline Gantt complète avec jalons et implémentations</td>
+                            </tr>
+                            <tr>
+                                <td>En retard (alert)</td>
+                                <td>Tâche surlignée rouge si date cible < aujourd'hui</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Wireframe ASCII (Vue Gantt)</div>
+                    <div class="wireframe">
+╔════════════════════════════════════════════════════════════╗
+║ Roadmap - Q1 2025 → Q4 2025           [Vue Gantt ▼]      ║
+╠════════════════════════════════════════════════════════════╣
+║                 Q1      Q2      Q3      Q4                ║
+║                                                            ║
+║ ◆ Fin Q1: 30%  ◆ Fin Q2: 60%  ◆ Fin Q3: 100%            ║
+║                                                            ║
+║ IMP-001: Vault ███████░░░░░░░░░░░░░░░░░░░░░░  60%       ║
+║ IMP-002: MFA   ██████░░░░░░░░░░░░░░░░░░░░░░░  50%       ║
+║ IMP-003: SIEM  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░  0%        ║
+║ IMP-004: Audit ░░░░░░░░░░░░░░░░░░░░░░░░░░░░  0%        ║
+║                                                            ║
+║ Legende:  ███ Critique  ███ Haute  ███ Moyenne  ███ Basse║
+╚════════════════════════════════════════════════════════════╝
+
+Vue Kanban Alternative:
+┌──────────────┬──────────────┬──────────────┬──────────────┐
+│ À faire      │ En cours     │ Bloqué       │ Validé       │
+├──────────────┼──────────────┼──────────────┼──────────────┤
+│              │              │              │              │
+│ IMP-003      │ IMP-001      │ IMP-005      │ IMP-006      │
+│ Audit SIEM   │ Vault        │ Formation    │ Policies     │
+│ (Q2)         │ (Q1) 60%     │ Equipe       │ ✓            │
+│              │              │ (bloqué)     │              │
+│ IMP-004      │ IMP-002      │              │              │
+│ Encrypt DB   │ MFA          │              │              │
+│ (Q2)         │ (Q1) 50%     │              │              │
+│              │              │              │              │
+└──────────────┴──────────────┴──────────────┴──────────────┘
+                    </div>
+                </div>
+
+                <div class="highlight">
+                    <strong>💡 Intégration inter-pages :</strong><br>
+                    Les 4 pages sont étroitement liées : Dashboard affiche résumé → Clic alerte/KPI → Page 2 (Lacunes) → Clic lacune → Page 3 (Détail) → Clic implémentation → Page 4 (Roadmap) → Clic implémentation → Retour Page 3
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>Document d'architecture UX/UI MVP</strong> - Suivi de Conformité ISO 27001 / NIS2-ANSSI</p>
+            <p>4 pages essentielles | Générée le 24 septembre 2026</p>
+            <p style="margin-top: 20px; font-size: 0.85em;">Architecture minimale viable couvrant : Accueil (KPI/alertes), Inventaire (filtrage), Détail (édition/preuves), Roadmap (planification).</p>
+        </footer>
+    </div>
+</body>
+</html>
