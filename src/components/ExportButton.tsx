@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import Icon from './Icon.jsx'
+import Icon, { type IconName } from './Icon'
+
+export interface ExportItem {
+  icon?: IconName
+  label: string
+  onClick: () => void
+}
 
 /** Bouton « Exporter » avec menu déroulant (rapport HTML, impression, CSV). */
-export default function ExportButton({ items, label = 'Exporter le rapport' }) {
+export default function ExportButton({ items, label = 'Exporter le rapport' }: { items: ExportItem[]; label?: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="menu">

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import Icon from '../components/Icon.jsx'
-import { CriticalityBadge, Progress, StatusBadge } from '../components/ui.jsx'
-import { ISO_CONTROLS, NIS2_REQUIREMENTS, THEMES } from '../data/isoControls.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { activeGaps, isOpen } from '../utils/compliance.js'
+import Icon from '../components/Icon'
+import { CriticalityBadge, Progress, StatusBadge } from '../components/ui'
+import { ISO_CONTROLS, NIS2_REQUIREMENTS, THEMES } from '../data/isoControls'
+import { useCompliance } from '../store/ComplianceContext'
+import { activeGaps, isOpen } from '../utils/compliance'
+import { applyParamChanges } from '../utils/searchParams'
+import type { Gap } from '../types'
+
+type ControlState = 'open' | 'validated' | 'none'
 
 /**
  * Référentiel ISO 27001:2022 (93 mesures) relié aux exigences NIS2,
@@ -19,13 +23,14 @@ export default function Referentiel() {
   const focus = params.get('mesure')
 
   const gapsByControl = useMemo(() => {
-    const map = {}
-    for (const g of activeGaps(state.gaps)) for (const c of g.controlIds) (map[c] ??= []).push(g)
+    const map = new Map<string, Gap[]>()
+    for (const g of activeGaps(state.gaps))
+      for (const c of g.controlIds) map.set(c, [...(map.get(c) ?? []), g])
     return map
   }, [state.gaps])
 
-  const controlState = (id) => {
-    const gaps = gapsByControl[id] ?? []
+  const controlState = (id: string): ControlState => {
+    const gaps = gapsByControl.get(id) ?? []
     if (gaps.some(isOpen)) return 'open'
     return gaps.length ? 'validated' : 'none'
   }
@@ -34,7 +39,7 @@ export default function Referentiel() {
     () =>
       NIS2_REQUIREMENTS.map((n) => {
         const controls = ISO_CONTROLS.filter((c) => c.nis2.includes(n.id))
-        const openControls = controls.filter((c) => (gapsByControl[c.id] ?? []).some(isOpen))
+        const openControls = controls.filter((c) => (gapsByControl.get(c.id) ?? []).some(isOpen))
         const openGaps = activeGaps(state.gaps).filter((g) => isOpen(g) && g.nis2Refs.includes(n.id))
         return {
           ...n,
@@ -50,10 +55,8 @@ export default function Referentiel() {
     if (focus) document.getElementById(`ctrl-${focus}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [focus])
 
-  const setParam = (k, v) => {
-    const next = new URLSearchParams(params)
-    v ? next.set(k, v) : next.delete(k)
-    next.delete('mesure')
+  const setParam = (key: string, value: string) => {
+    const next = applyParamChanges(params, { [key]: value, mesure: null })
     setParams(next, { replace: true })
   }
 
@@ -148,7 +151,7 @@ export default function Referentiel() {
             <div className="control-grid">
               {list.map((c) => {
                 const st = controlState(c.id)
-                const gaps = gapsByControl[c.id] ?? []
+                const gaps = gapsByControl.get(c.id) ?? []
                 return (
                   <div key={c.id} id={`ctrl-${c.id}`} className={`control-item ${st === 'open' ? 'is-open' : st === 'validated' ? 'is-ok' : ''}`} style={focus === c.id ? { boxShadow: '0 0 0 3px var(--primary-500)' } : undefined}>
                     <span className="control-item__id">{c.id}</span>

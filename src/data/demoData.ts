@@ -3,16 +3,32 @@
  * (entité essentielle — secteur de l'eau). Les dates sont calculées
  * relativement à la date du jour pour que retards et revues restent parlants.
  */
-import { suggestNis2 } from './isoControls.js'
-import { CRITICALITY_BY_ID } from './constants.js'
-import { addDays, addMonths, today } from '../utils/dates.js'
+import { suggestNis2 } from './isoControls'
+import { CRITICALITY_BY_ID } from './constants'
+import { addDays, addMonths, today } from '../utils/dates'
+import type {
+  ComplianceState,
+  CriticalityId,
+  Evidence,
+  EvidenceTypeId,
+  Gap,
+  GapStatusId,
+  HistoryEntry,
+  Milestone,
+  Nis2Id,
+  Organization,
+  Remediation,
+  RemediationStatusId,
+  RemediationTypeId,
+  User,
+} from '../types'
 
-export const ORGANIZATION = {
+export const ORGANIZATION: Organization = {
   name: 'Eaux du Val de Loire (fictif)',
   sector: "Eau potable — entité essentielle NIS2",
 }
 
-export const DEMO_USERS = [
+export const DEMO_USERS: User[] = [
   { id: 'u1', name: 'Alice Martin', initials: 'AM', title: 'RSSI', role: 'responsable' },
   { id: 'u2', name: 'Bruno Leroy', initials: 'BL', title: 'Administrateur systèmes & réseaux', role: 'contributeur' },
   { id: 'u3', name: 'Chloé Dubois', initials: 'CD', title: 'DSI adjointe', role: 'contributeur' },
@@ -39,7 +55,30 @@ const ANSSI = {
 
 // [id, titre, description, mesures ISO, réf. ANSSI, criticité, statut, impact,
 //  échéance (j), création (j), créateur, assigné, extra]
-const GAPS = [
+interface GapExtra {
+  validatedDays?: number
+  validatedBy?: string
+  archived?: boolean
+  nis2?: Nis2Id[]
+}
+
+type GapRow = [
+  id: string,
+  title: string,
+  description: string,
+  controlIds: string[],
+  anssiRef: string,
+  criticality: CriticalityId,
+  status: GapStatusId,
+  impact: string,
+  dueDays: number,
+  createdDays: number,
+  createdBy: string,
+  assignee: string,
+  extra?: GapExtra,
+]
+
+const GAPS: GapRow[] = [
   ['GAP-001', "MFA non configurée sur le portail d'administration", "Le portail d'administration de l'hyperviseur et la console de supervision SCADA ne disposent pas d'authentification multifacteur. Les comptes administrateurs sont exposés au hameçonnage et au bourrage d'identifiants.", ['8.5', '5.17'], ANSSI.mfa, 'critique', 'en_cours', "Accès non autorisé aux fonctions d'administration, compromission de l'infrastructure de production d'eau.", 20, -95, 'u1', 'u2'],
   ['GAP-002', 'Flux internes non chiffrés entre applications métier', "Les échanges entre l'ERP, la GMAO et la base clients transitent en clair (HTTP, LDAP non signé).", ['8.24', '5.14'], ANSSI.tls, 'haute', 'non_traitee', 'Interception de données clients et d’identifiants sur le réseau interne.', 45, -90, 'u1', 'u3'],
   ['GAP-003', 'Restauration des sauvegardes jamais testée', "Les sauvegardes quotidiennes sont réalisées mais aucun test de restauration n'a été conduit depuis 2 ans. Aucune copie hors ligne n'existe.", ['8.13', '5.30'], ANSSI.backup, 'critique', 'en_cours', 'Impossibilité de reprendre l’activité après un rançongiciel ; perte de données de facturation.', -5, -88, 'u1', 'u2'],
@@ -69,7 +108,20 @@ const GAPS = [
 ]
 
 // [id, gapId, titre, type, statut, avancement, début (j), cible (j), responsable, description]
-const REMEDIATIONS = [
+type RemediationRow = [
+  id: string,
+  gapId: string,
+  title: string,
+  type: RemediationTypeId,
+  status: RemediationStatusId,
+  progress: number,
+  startDays: number,
+  targetDays: number,
+  owner: string,
+  description: string,
+]
+
+const REMEDIATIONS: RemediationRow[] = [
   ['IMP-001', 'GAP-001', 'Déployer une solution MFA (TOTP + clés FIDO2) pour les administrateurs', 'outil', 'en_cours', 60, -40, 15, 'u2', 'Clés FIDO2 commandées ; intégration à l’hyperviseur faite, reste la console SCADA.'],
   ['IMP-002', 'GAP-001', 'Rédiger la procédure d’enrôlement et de perte de facteur MFA', 'procedure', 'a_faire', 0, 0, 25, 'u1', ''],
   ['IMP-003', 'GAP-003', 'Mettre en place une sauvegarde hors ligne (bande / stockage immuable)', 'outil', 'en_cours', 70, -60, -5, 'u2', 'Stockage objet immuable en cours de configuration.'],
@@ -105,7 +157,18 @@ const REMEDIATIONS = [
 ]
 
 // [id, gapId, nom, type, taille (octets), date (j), auteur, lien]
-const EVIDENCE = [
+type EvidenceRow = [
+  id: string,
+  gapId: string,
+  name: string,
+  type: EvidenceTypeId,
+  size: number | null,
+  days: number,
+  uploadedBy: string,
+  url?: string,
+]
+
+const EVIDENCE: EvidenceRow[] = [
   ['PRV-001', 'GAP-009', 'PSSI_v3_approuvee_CODIR.pdf', 'procedure', 845_000, -61, 'u1'],
   ['PRV-002', 'GAP-009', 'PV_CODIR_approbation_PSSI.pdf', 'rapport', 212_000, -60, 'u6'],
   ['PRV-003', 'GAP-014', 'export_comptes_admin_dedies.csv', 'journal', 18_400, -201, 'u2'],
@@ -120,7 +183,7 @@ const EVIDENCE = [
 ]
 
 let historySeq = 0
-const hist = (gapId, days, userId, action, details = '') => ({
+const hist = (gapId: string, days: number, userId: string, action: string, details = ''): HistoryEntry => ({
   id: `H-${String(++historySeq).padStart(4, '0')}`,
   gapId,
   date: new Date(`${addDays(today(), days)}T${String(8 + (historySeq % 9)).padStart(2, '0')}:${String((historySeq * 7) % 60).padStart(2, '0')}:00`).toISOString(),
@@ -129,15 +192,15 @@ const hist = (gapId, days, userId, action, details = '') => ({
   details,
 })
 
-export const buildDemoData = () => {
+export const buildDemoData = (): ComplianceState => {
   const base = today()
-  const d = (n) => addDays(base, n)
-  const ts = (n, h = 9) => new Date(`${d(n)}T${String(h).padStart(2, '0')}:15:00`).toISOString()
+  const d = (n: number) => addDays(base, n)
+  const ts = (n: number, h = 9) => new Date(`${d(n)}T${String(h).padStart(2, '0')}:15:00`).toISOString()
   historySeq = 0
-  const history = []
+  const history: HistoryEntry[] = []
 
   const gaps = GAPS.map(([id, title, description, controlIds, anssiRef, criticality, status, impact, due, created, createdBy, assignee, extra = {}]) => {
-    const gap = {
+    const gap: Gap = {
       id,
       title,
       description,
@@ -162,7 +225,7 @@ export const buildDemoData = () => {
     if (status !== 'non_traitee') history.push(hist(id, created + 5, assignee, 'Statut modifié', 'Non traitée → En cours'))
     if (status === 'corrigee' || status === 'validee')
       history.push(hist(id, (extra.validatedDays ?? -3) - 2, assignee, 'Statut modifié', 'En cours → Corrigée'))
-    if (status === 'validee') {
+    if (status === 'validee' && extra.validatedDays != null && extra.validatedBy) {
       const vDate = d(extra.validatedDays)
       gap.validation = { by: extra.validatedBy, date: ts(extra.validatedDays, 16), comment: 'Preuves vérifiées, mesure conforme.' }
       gap.nextReviewDate = addMonths(vDate, CRITICALITY_BY_ID[criticality].reviewMonths)
@@ -175,28 +238,30 @@ export const buildDemoData = () => {
   })
 
   // Une revue périodique déjà réalisée, pour l'exemple.
-  const g17 = gaps.find((g) => g.id === 'GAP-017')
+  const g17 = gaps.find((g) => g.id === 'GAP-017')!
   g17.reviews.push({ id: 'REV-001', date: ts(-10, 11), by: 'u1', outcome: 'conforme', comment: 'Contrôle chrony OK sur 42 serveurs.' })
   g17.nextReviewDate = addMonths(d(-10), CRITICALITY_BY_ID[g17.criticality].reviewMonths)
   history.push(hist('GAP-017', -10, 'u1', 'Revue périodique', 'Toujours conforme. Contrôle chrony OK sur 42 serveurs.'))
 
-  const createdOffset = Object.fromEntries(GAPS.map((g) => [g[0], g[9]]))
+  const createdOffset = new Map(GAPS.map((g) => [g[0], g[9]]))
   const remediations = REMEDIATIONS.map(([id, gapId, title, type, status, progress, start, target, owner, description]) => {
     // Une remédiation planifiée dans le futur a été saisie dans le passé.
-    const logged = Math.max(createdOffset[gapId] + 1, Math.min(start, -1))
+    const logged = Math.max((createdOffset.get(gapId) ?? start) + 1, Math.min(start, -1))
     history.push(hist(gapId, logged, owner, 'Remédiation ajoutée', `${id} — ${title}`))
-    return { id, gapId, title, type, status, progress, startDate: d(start), targetDate: d(target), owner, description }
+    const rem: Remediation = { id, gapId, title, type, status, progress, startDate: d(start), targetDate: d(target), owner, description }
+    return rem
   })
 
   const evidence = EVIDENCE.map(([id, gapId, name, type, size, days, uploadedBy, url]) => {
     history.push(hist(gapId, days, uploadedBy, 'Preuve ajoutée', name))
-    return { id, gapId, name, type, size, url: url ?? null, dataUrl: null, uploadedAt: ts(days, 10), uploadedBy, demo: true }
+    const ev: Evidence = { id, gapId, name, type, size, url: url ?? null, dataUrl: null, uploadedAt: ts(days, 10), uploadedBy, demo: true }
+    return ev
   })
 
   history.sort((a, b) => a.date.localeCompare(b.date))
 
-  const q = (months) => addMonths(base, months)
-  const milestones = [
+  const q = (months: number) => addMonths(base, months)
+  const milestones: Milestone[] = [
     { id: 'M1', date: q(3), label: 'Lacunes critiques traitées', target: 40 },
     { id: 'M2', date: q(6), label: 'Mise en conformité NIS2 socle', target: 70 },
     { id: 'M3', date: q(12), label: 'Conformité complète', target: 100 },

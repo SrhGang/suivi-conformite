@@ -1,69 +1,73 @@
-import { useRef, useState } from 'react'
-import { EVIDENCE_TYPES, EVIDENCE_TYPE_BY_ID } from '../data/constants.js'
-import { IS_ARTIFACT } from '../platform.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { formatDateTime } from '../utils/dates.js'
-import Icon from './Icon.jsx'
-import { ConfirmDialog, UserName } from './ui.jsx'
+import { useRef, useState, type FormEvent } from 'react'
+import { EVIDENCE_TYPES, EVIDENCE_TYPE_BY_ID } from '../data/constants'
+import { IS_ARTIFACT } from '../platform'
+import { useCompliance } from '../store/ComplianceContext'
+import { formatDateTime } from '../utils/dates'
+import type { Evidence, EvidenceTypeId, Gap } from '../types'
+import Icon, { type IconName } from './Icon'
+import { ConfirmDialog, UserName } from './ui'
 
 const MAX_INLINE = 1024 * 1024 // 1 Mo : au-delà, seules les métadonnées sont conservées localement.
 
-const formatSize = (n) => {
+const formatSize = (n: number | null): string => {
   if (!n) return ''
   if (n < 1024) return `${n} o`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} Ko`
   return `${(n / 1024 / 1024).toFixed(1)} Mo`
 }
 
-const iconFor = (ev) => {
+const extension = (name: string) => (name.split('.').pop() ?? '').toLowerCase()
+
+const iconFor = (ev: Evidence): IconName => {
   if (ev.url) return 'link'
-  const ext = ev.name.split('.').pop().toLowerCase()
+  const ext = extension(ev.name)
   if (['csv', 'xlsx', 'xls'].includes(ext)) return 'table'
   return 'file'
 }
 
-const guessType = (name) => {
-  const ext = name.split('.').pop().toLowerCase()
+const guessType = (name: string): EvidenceTypeId => {
+  const ext = extension(name)
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return 'capture'
   if (['csv', 'log', 'txt', 'json'].includes(ext)) return 'journal'
   return 'autre'
 }
 
-const readAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
+const readAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
     const r = new FileReader()
-    r.onload = () => resolve(r.result)
+    r.onload = () => resolve(String(r.result))
     r.onerror = () => reject(r.error)
     r.readAsDataURL(file)
   })
 
-export default function EvidencePanel({ gap }) {
+export default function EvidencePanel({ gap }: { gap: Gap }) {
   const { state, can, addEvidence, removeEvidence, notify } = useCompliance()
   const evidence = state.evidence.filter((e) => e.gapId === gap.id)
   const [over, setOver] = useState(false)
-  const [type, setType] = useState('')
+  const [type, setType] = useState<EvidenceTypeId | ''>('')
   const [link, setLink] = useState({ name: '', url: '' })
-  const [removing, setRemoving] = useState(null)
-  const fileRef = useRef(null)
+  const [removing, setRemoving] = useState<Evidence | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const editable = can('edit') && !gap.archived
 
-  const upload = async (files) => {
+  const upload = async (files: FileList | null) => {
+    if (!files) return
     for (const file of Array.from(files)) {
       const dataUrl = file.size <= MAX_INLINE ? await readAsDataUrl(file) : null
       const res = addEvidence(gap.id, { name: file.name, size: file.size, type: type || guessType(file.name), dataUrl })
-      if (res.error) notify(res.error, 'error')
+      if (!res.ok) notify(res.error, 'error')
       else notify(dataUrl ? `Preuve « ${file.name} » ajoutée.` : `« ${file.name} » référencée (fichier > 1 Mo : contenu non stocké dans le prototype).`, dataUrl ? 'success' : 'warning')
     }
   }
 
-  const addLink = (e) => {
+  const addLink = (e: FormEvent) => {
     e.preventDefault()
     if (!/^https?:\/\//i.test(link.url.trim())) {
       notify('Le lien doit commencer par http:// ou https://', 'error')
       return
     }
     const res = addEvidence(gap.id, { name: link.name || link.url, url: link.url, type: type || 'autre' })
-    if (res.error) notify(res.error, 'error')
+    if (!res.ok) notify(res.error, 'error')
     else {
       notify('Lien de preuve ajouté.')
       setLink({ name: '', url: '' })
@@ -116,7 +120,7 @@ export default function EvidencePanel({ gap }) {
         <>
           <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="ev-type">Type de preuve</label>
-            <select id="ev-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>
+            <select id="ev-type" className="input" value={type} onChange={(e) => setType(e.target.value as EvidenceTypeId | "")}>
               <option value="">Détection automatique</option>
               {EVIDENCE_TYPES.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -166,7 +170,7 @@ export default function EvidencePanel({ gap }) {
           onClose={() => setRemoving(null)}
           onConfirm={() => {
             const r = removeEvidence(removing.id)
-            r.error ? notify(r.error, 'error') : notify('Preuve retirée.')
+            !r.ok ? notify(r.error, 'error') : notify('Preuve retirée.')
             setRemoving(null)
           }}
         />

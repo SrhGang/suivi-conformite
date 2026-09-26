@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { EXPORT_EVENT } from '../utils/report.js'
-import { Modal } from './ui.jsx'
+import { EXPORT_EVENT, type ExportDetail } from '../utils/report'
+import { Modal } from './ui'
 
 /**
  * Page hébergée : les téléchargements sont bloqués, le contenu exporté
  * est donc affiché ici pour être copié (rapport, CSV, sauvegarde JSON).
  */
 export default function ExportDialog() {
-  const [file, setFile] = useState(null)
+  const [file, setFile] = useState<ExportDetail | null>(null)
   const [copied, setCopied] = useState(false)
-  const areaRef = useRef(null)
+  const areaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const onExport = (e) => {
+    const onExport = (e: Event) => {
       setCopied(false)
-      setFile(e.detail)
+      setFile((e as CustomEvent<ExportDetail>).detail)
     }
     window.addEventListener(EXPORT_EVENT, onExport)
     return () => window.removeEventListener(EXPORT_EVENT, onExport)

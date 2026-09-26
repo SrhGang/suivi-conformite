@@ -1,6 +1,6 @@
 # Suivi de conformité ISO 27001:2022 / NIS2-ANSSI
 
-Prototype React qui sert à recenser les mesures de cybersécurité non appliquées dans un organisme et à suivre leur correction jusqu'à la validation. Il sert aussi de document vivant : ce document est mis à jour à chaque action et peut être exporté.
+Prototype React + TypeScript qui sert à recenser les mesures de cybersécurité non appliquées dans un organisme et à suivre leur correction jusqu'à la validation. Il sert aussi de document vivant : ce document est mis à jour à chaque action et peut être exporté.
 
 ## Démarrage
 
@@ -8,7 +8,8 @@ Prototype React qui sert à recenser les mesures de cybersécurité non appliqu�
 npm install
 npm run dev      # http://localhost:5173
 npm test         # tests unitaires de la logique métier (Vitest)
-npm run build    # build de production dans dist/
+npm run typecheck  # vérification TypeScript (mode strict)
+npm run build    # vérification TypeScript puis build de production dans dist/
 ```
 
 Pour produire la version en ligne (page unique autonome, hébergeable comme page claude.ai) :
@@ -48,8 +49,9 @@ Les données sont stockées dans le `localStorage` du navigateur. Au premier lan
 
 ```
 src/
+  types.ts     modèle de données typé (Gap, Remediation, Evidence, ComplianceState…)
   data/        référentiel ISO 27001:2022 ↔ NIS2, constantes, données de démo
-  store/       logique métier pure (actions.js) + contexte React (persistance)
+  store/       logique métier pure (actions.ts, résultats typés ok/erreur) + contexte React (persistance)
   utils/       calculs de conformité, dates, export (HTML, CSV, JSON)
   components/  mise en page, formulaires, preuves, composants UI
   pages/       Dashboard, GapsInventory, GapDetail, Roadmap, Referentiel

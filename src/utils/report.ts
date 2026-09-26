@@ -9,8 +9,8 @@ import {
   GAP_STATUS_BY_ID,
   REMEDIATION_STATUS_BY_ID,
   REMEDIATION_TYPE_BY_ID,
-} from '../data/constants.js'
-import { controlLabel, getNis2 } from '../data/isoControls.js'
+} from '../data/constants'
+import { controlLabel, getNis2 } from '../data/isoControls'
 import {
   activeGaps,
   conformControls,
@@ -20,11 +20,12 @@ import {
   scoreByTheme,
   themeOfGap,
   weightedScore,
-} from './compliance.js'
-import { formatDate, formatDateTime, toISODate } from './dates.js'
-import { IS_ARTIFACT } from '../platform.js'
+} from './compliance'
+import { formatDate, formatDateTime, toISODate } from './dates'
+import { IS_ARTIFACT } from '../platform'
+import type { ComplianceState, CriticalityId } from '../types'
 
-const esc = (s) =>
+const esc = (s: unknown): string =>
   String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -33,10 +34,17 @@ const esc = (s) =>
 
 export const EXPORT_EVENT = 'conformite:export'
 
-export const download = (filename, content, mime) => {
+/** Détail de l'évènement émis à la place d'un téléchargement (version hébergée). */
+export interface ExportDetail {
+  filename: string
+  content: string
+  mime: string
+}
+
+export const download = (filename: string, content: string, mime: string): void => {
   if (IS_ARTIFACT) {
     // Téléchargement bloqué dans la page hébergée : on affiche le contenu à copier.
-    window.dispatchEvent(new CustomEvent(EXPORT_EVENT, { detail: { filename, content, mime } }))
+    window.dispatchEvent(new CustomEvent<ExportDetail>(EXPORT_EVENT, { detail: { filename, content, mime } }))
     return
   }
   const blob = new Blob([content], { type: mime })
@@ -50,16 +58,16 @@ export const download = (filename, content, mime) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const userName = (state, id) => state.users.find((u) => u.id === id)?.name ?? '—'
+const userName = (state: ComplianceState, id: string): string => state.users.find((u) => u.id === id)?.name ?? '—'
 
-export function buildReportHtml(state) {
+export function buildReportHtml(state: ComplianceState): string {
   const gaps = activeGaps(state.gaps)
   const { remediations, evidence } = state
   const score = weightedScore(gaps, remediations)
   const themes = scoreByTheme(gaps, remediations)
   const controls = conformControls(gaps)
   const generated = formatDateTime(new Date().toISOString())
-  const crit = { critique: '#E74C3C', haute: '#F39C12', moyenne: '#D4AC0D', basse: '#3498DB' }
+  const crit: Record<CriticalityId, string> = { critique: '#BD271E', haute: '#E7664C', moyenne: '#D6BF57', basse: '#6092C0' }
 
   const sorted = [...gaps].sort(
     (a, b) =>
@@ -120,26 +128,26 @@ export function buildReportHtml(state) {
 <html lang="fr"><head><meta charset="utf-8">
 <title>Rapport de conformité ISO 27001 / NIS2 — ${esc(state.organization.name)} — ${toISODate(new Date())}</title>
 <style>
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#212529;max-width:1000px;margin:0 auto;padding:32px;line-height:1.5}
-  header{background:#0F3460;color:#fff;padding:24px 32px;border-radius:8px;border-bottom:4px solid #E94B3C}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#343741;max-width:1000px;margin:0 auto;padding:32px;line-height:1.5}
+  header{background:#006BB8;color:#fff;padding:24px 32px;border-radius:8px;border-bottom:4px solid #006BB8}
   header h1{margin:0 0 4px;font-size:1.6rem} header p{margin:0;opacity:.9}
-  h2{color:#0F3460;border-bottom:2px solid #E9ECEF;padding-bottom:6px;margin-top:32px}
-  h3{color:#0F3460;font-size:1.05rem;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  h4{margin:12px 0 6px;color:#1B5E8F;font-size:.95rem}
+  h2{color:#006BB8;border-bottom:2px solid #EEF2F7;padding-bottom:6px;margin-top:32px}
+  h3{color:#006BB8;font-size:1.05rem;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h4{margin:12px 0 6px;color:#1A1C21;font-size:.95rem}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
-  .kpi{border:1px solid #DEE2E6;border-radius:8px;padding:12px 16px} .kpi b{display:block;font-size:1.6rem;color:#0F3460}
+  .kpi{border:1px solid #D3DAE6;border-radius:8px;padding:12px 16px} .kpi b{display:block;font-size:1.6rem;color:#006BB8}
   table{border-collapse:collapse;width:100%;font-size:.88rem;margin:8px 0}
-  th,td{border:1px solid #DEE2E6;padding:6px 8px;text-align:left;vertical-align:top}
-  thead th,.summary th{background:#0F3460;color:#fff}
-  .kv th{background:#F8F9FA;width:110px;color:#495057;font-weight:600}
+  th,td{border:1px solid #D3DAE6;padding:6px 8px;text-align:left;vertical-align:top}
+  thead th,.summary th{background:#006BB8;color:#fff}
+  .kv th{background:#F5F7FA;width:110px;color:#535966;font-weight:600}
   .num{text-align:right;font-variant-numeric:tabular-nums}
-  .gap{border:1px solid #DEE2E6;border-radius:8px;padding:16px;margin:16px 0;page-break-inside:avoid}
+  .gap{border:1px solid #D3DAE6;border-radius:8px;padding:16px;margin:16px 0;page-break-inside:avoid}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .flag{font-size:.7rem;padding:2px 8px;border-radius:9999px;text-transform:uppercase;font-weight:600}
-  .late{background:#FADBD8;color:#C0392B}
-  .desc{color:#495057} .muted{color:#6C757D;font-style:italic}
+  .late{background:#F8E9E9;color:#AC1A1A}
+  .desc{color:#535966} .muted{color:#69707D;font-style:italic}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  footer{margin-top:40px;color:#6C757D;font-size:.8rem;text-align:center}
+  footer{margin-top:40px;color:#69707D;font-size:.8rem;text-align:center}
   @media print{body{padding:0} header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
 <header>
@@ -166,10 +174,10 @@ ${gapSections}
 </body></html>`
 }
 
-export const exportReport = (state) =>
+export const exportReport = (state: ComplianceState): void =>
   download(`rapport-conformite-${toISODate(new Date())}.html`, buildReportHtml(state), 'text/html;charset=utf-8')
 
-export const printReport = (state) => {
+export const printReport = (state: ComplianceState): boolean => {
   if (IS_ARTIFACT) {
     exportReport(state)
     return true
@@ -183,9 +191,9 @@ export const printReport = (state) => {
   return true
 }
 
-const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+const csvCell = (v: unknown): string => `"${String(v ?? '').replace(/"/g, '""')}"`
 
-export const exportCsv = (state) => {
+export const exportCsv = (state: ComplianceState): void => {
   const header = ['ID', 'Titre', 'Thème', 'Mesures ISO', 'NIS2', 'Réf. ANSSI', 'Criticité', 'Statut', 'Avancement %', 'Échéance', 'Assigné à', 'Créé le', 'Archivée']
   const rows = state.gaps.map((g) => [
     g.id,
@@ -206,5 +214,5 @@ export const exportCsv = (state) => {
   download(`lacunes-${toISODate(new Date())}.csv`, csv, 'text/csv;charset=utf-8')
 }
 
-export const exportBackup = (state) =>
+export const exportBackup = (state: ComplianceState): void =>
   download(`sauvegarde-conformite-${toISODate(new Date())}.json`, JSON.stringify(state, null, 2), 'application/json')

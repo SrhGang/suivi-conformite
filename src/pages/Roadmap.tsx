@@ -1,14 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import RemediationForm from '../components/RemediationForm.jsx'
-import { CriticalityDot, EmptyState, LateBadge, Progress, RemTypeBadge, UserName } from '../components/ui.jsx'
-import { CRITICALITIES, CRITICALITY_BY_ID, REMEDIATION_STATUSES, REMEDIATION_STATUS_BY_ID } from '../data/constants.js'
-import { THEMES } from '../data/isoControls.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { activeGaps, isRemediationOverdue, themeOfGap, weightedScore } from '../utils/compliance.js'
-import { addDays, addMonths, diffDays, formatDate, parseDate, toISODate, today } from '../utils/dates.js'
+import RemediationForm from '../components/RemediationForm'
+import { CriticalityDot, EmptyState, LateBadge, Progress, RemTypeBadge, UserName } from '../components/ui'
+import { CRITICALITIES, CRITICALITY_BY_ID, REMEDIATION_STATUSES, REMEDIATION_STATUS_BY_ID } from '../data/constants'
+import { THEMES } from '../data/isoControls'
+import { useCompliance } from '../store/ComplianceContext'
+import { activeGaps, isRemediationOverdue, themeOfGap, weightedScore } from '../utils/compliance'
+import { addDays, addMonths, diffDays, formatDate, parseDate, toISODate, today } from '../utils/dates'
+import { applyParamChanges, type ParamChanges } from '../utils/searchParams'
+import type { Gap, ISODate, Remediation, RemediationInput, RemediationStatusId } from '../types'
 
-const PERIODS = [
+type SortDir = 'asc' | 'desc'
+type GapIndex = Record<string, Gap>
+interface DateRange {
+  start: ISODate
+  end: ISODate
+}
+/** Glisser en cours sur une barre du Gantt (décalages en jours). */
+interface DragState {
+  id: string
+  mode: 'move' | 'resize'
+  startX: number
+  dStart: number
+  dEnd: number
+  moved: boolean
+}
+interface Tooltip {
+  r: Remediation
+  x: number
+  y: number
+}
+
+const PERIODS: { id: string; label: string; months: number | null }[] = [
   { id: '6', label: '6 mois', months: 6 },
   { id: '12', label: '12 mois', months: 12 },
   { id: '18', label: '18 mois', months: 18 },
@@ -24,16 +47,14 @@ export default function Roadmap() {
   const period = params.get('periode') ?? '12'
   const hideDone = params.get('masquer') === '1'
   const focus = params.get('focus')
-  const [sortDir, setSortDir] = useState('asc')
-  const [editing, setEditing] = useState(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [editing, setEditing] = useState<Remediation | 'new' | null>(null)
 
-  const update = (changes) => {
-    const next = new URLSearchParams(params)
-    Object.entries(changes).forEach(([k, v]) => (v === '' || v == null || v === false ? next.delete(k) : next.set(k, v === true ? '1' : v)))
-    setParams(next, { replace: true })
+  const update = (changes: ParamChanges) => {
+    setParams(applyParamChanges(params, changes), { replace: true })
   }
 
-  const gapIndex = useMemo(() => Object.fromEntries(state.gaps.map((g) => [g.id, g])), [state.gaps])
+  const gapIndex = useMemo<GapIndex>(() => Object.fromEntries(state.gaps.map((g) => [g.id, g])), [state.gaps])
 
   const items = useMemo(() => {
     const list = state.remediations.filter((r) => {
@@ -48,7 +69,7 @@ export default function Roadmap() {
     // Les remédiations validées passent en fin de liste, les autres par date cible.
     return list.sort(
       (a, b) =>
-        (a.status === 'valide') - (b.status === 'valide') ||
+        Number(a.status === 'valide') - Number(b.status === 'valide') ||
         dir * a.targetDate.localeCompare(b.targetDate) ||
         CRITICALITY_BY_ID[gapIndex[b.gapId].criticality].weight - CRITICALITY_BY_ID[gapIndex[a.gapId].criticality].weight,
     )
@@ -63,7 +84,7 @@ export default function Roadmap() {
   }
 
   // Période affichée (Gantt) — de 1 mois avant aujourd'hui jusqu'à N mois après.
-  const range = useMemo(() => {
+  const range = useMemo<DateRange>(() => {
     const p = PERIODS.find((x) => x.id === period) ?? PERIODS[1]
     if (p.months) return { start: addMonths(today(), -1), end: addDays(addMonths(today(), p.months), 21) }
     const dates = [...state.remediations.flatMap((r) => [r.startDate, r.targetDate]), ...state.milestones.map((m) => m.date), today()].sort()
@@ -157,13 +178,13 @@ export default function Roadmap() {
 
       {state.remediations.length === 0 ? (
         <div className="card">
-          <EmptyState icon="🗓️" title="Aucune remédiation planifiée">
+          <EmptyState icon="calendar" title="Aucune remédiation planifiée">
             Créez la première depuis le détail d'une lacune (onglet Remédiations) ou avec le bouton « Nouvelle remédiation ».
           </EmptyState>
         </div>
       ) : items.length === 0 ? (
         <div className="card">
-          <EmptyState icon="🔍" title="Aucune remédiation ne correspond aux filtres" />
+          <EmptyState icon="search" title="Aucune remédiation ne correspond aux filtres" />
         </div>
       ) : view === 'gantt' ? (
         <Gantt items={items} gapIndex={gapIndex} range={range} focus={focus} sortDir={sortDir} onSort={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))} onOpen={setEditing} />
@@ -186,15 +207,25 @@ export default function Roadmap() {
 /* Vue Gantt                                                           */
 /* ------------------------------------------------------------------ */
 
-function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
+interface GanttProps {
+  items: Remediation[]
+  gapIndex: GapIndex
+  range: DateRange
+  focus: string | null
+  sortDir: SortDir
+  onSort: () => void
+  onOpen: (r: Remediation) => void
+}
+
+function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: GanttProps) {
   const { state, can, updateRemediation, notify } = useCompliance()
-  const trackRef = useRef(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const [trackWidth, setTrackWidth] = useState(800)
-  const [drag, setDrag] = useState(null) // { id, mode, startX, dStart, dEnd, moved }
-  const [tip, setTip] = useState(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const [tip, setTip] = useState<Tooltip | null>(null)
   const totalDays = Math.max(1, diffDays(range.end, range.start))
   const pxPerDay = trackWidth / totalDays
-  const pct = (date) => (diffDays(date, range.start) / totalDays) * 100
+  const pct = (date: ISODate) => (diffDays(date, range.start) / totalDays) * 100
   const score = weightedScore(activeGaps(state.gaps), state.remediations)
   const todayStr = today()
   const editable = can('edit')
@@ -213,7 +244,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
   }, [focus])
 
   const months = useMemo(() => {
-    const out = []
+    const out: ISODate[] = []
     const d = parseDate(range.start)
     d.setDate(1)
     while (toISODate(d) <= range.end) {
@@ -223,7 +254,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
     return out
   }, [range])
 
-  const onPointerDown = (e, r, mode) => {
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>, r: Remediation, mode: DragState['mode']) => {
     if (!editable || e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
@@ -231,13 +262,13 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
     setTip(null)
     setDrag({ id: r.id, mode, startX: e.clientX, dStart: 0, dEnd: 0, moved: false })
   }
-  const onPointerMove = (e) => {
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!drag) return
     const days = Math.round((e.clientX - drag.startX) / pxPerDay)
     const moved = drag.moved || Math.abs(e.clientX - drag.startX) > 3
-    setDrag((d) => ({ ...d, moved, dStart: d.mode === 'move' ? days : 0, dEnd: days }))
+    setDrag((d) => (d ? { ...d, moved, dStart: d.mode === 'move' ? days : 0, dEnd: days } : d))
   }
-  const onPointerUp = (r) => {
+  const onPointerUp = (r: Remediation) => {
     if (!drag) return
     const { moved, dStart, dEnd } = drag
     setDrag(null)
@@ -250,11 +281,11 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
     let targetDate = addDays(r.targetDate, dEnd)
     if (targetDate < startDate) targetDate = startDate
     const res = updateRemediation(r.id, { startDate, targetDate })
-    if (res.error) notify(res.error, 'error')
+    if (!res.ok) notify(res.error, 'error')
     else notify(`${r.id} : échéance au ${formatDate(targetDate)}.`)
   }
 
-  const milestoneState = (m) => (score >= m.target ? 'is-reached' : m.date < todayStr ? 'is-missed' : '')
+  const milestoneState = (m: { date: ISODate; target: number }) => (score >= m.target ? 'is-reached' : m.date < todayStr ? 'is-missed' : '')
 
   return (
     <div className="gantt">
@@ -385,22 +416,22 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
 /* Vue Kanban                                                          */
 /* ------------------------------------------------------------------ */
 
-function Kanban({ items, gapIndex, onOpen }) {
+function Kanban({ items, gapIndex, onOpen }: { items: Remediation[]; gapIndex: GapIndex; onOpen: (r: Remediation) => void }) {
   const { can, updateRemediation, notify } = useCompliance()
-  const [dragId, setDragId] = useState(null)
-  const [over, setOver] = useState(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [over, setOver] = useState<RemediationStatusId | null>(null)
   const editable = can('edit')
 
-  const drop = (status) => {
+  const drop = (status: RemediationStatusId) => {
     setOver(null)
     const r = items.find((x) => x.id === dragId)
     setDragId(null)
     if (!r || r.status === status) return
-    const changes = { status }
+    const changes: Partial<RemediationInput> = { status }
     if (status === 'valide') changes.progress = 100
     else if (r.status === 'valide') changes.progress = 90
     const res = updateRemediation(r.id, changes)
-    if (res.error) notify(res.error, 'error')
+    if (!res.ok) notify(res.error, 'error')
     else notify(`${r.id} → ${REMEDIATION_STATUS_BY_ID[status].label}`)
   }
 
@@ -418,7 +449,7 @@ function Kanban({ items, gapIndex, onOpen }) {
               e.preventDefault()
               setOver(col.id)
             }}
-            onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget) && setOver(null)}
+            onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setOver(null)}
             onDrop={(e) => {
               e.preventDefault()
               drop(col.id)

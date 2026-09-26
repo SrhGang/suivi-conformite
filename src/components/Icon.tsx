@@ -33,9 +33,17 @@ const PATHS = {
   more: 'M5 12h.01M12 12h.01M19 12h.01',
 }
 
-export default function Icon({ name, size = 16, className = '', title }) {
+export type IconName = keyof typeof PATHS
+
+interface IconProps {
+  name: IconName
+  size?: number
+  className?: string
+  title?: string
+}
+
+export default function Icon({ name, size = 16, className = '', title }: IconProps) {
   const d = PATHS[name]
-  if (!d) return null
   return (
     <svg
       className={`icon-svg ${className}`}
