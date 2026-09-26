@@ -98,7 +98,7 @@ export default function GapDetail() {
           {late && <LateBadge label={`Échéance ${relativeDue(gap.dueDate)}`} />}
           {isReviewDue(gap) && <span className="badge badge--warning">Revue périodique due</span>}
           {gap.archived && <span className="badge badge--neutral">Archivée</span>}
-          <span className="badge badge--outline" style={{ background: 'rgba(255,255,255,0.9)' }}>
+          <span className="badge badge--outline">
             Avancement {gapProgress(gap, state.remediations)} %
           </span>
         </div>
