@@ -7,8 +7,6 @@ import type { Evidence, EvidenceTypeId, Gap } from '../types'
 import Icon, { type IconName } from './Icon'
 import { ConfirmDialog, UserName } from './ui'
 
-const MAX_INLINE = 1024 * 1024 // 1 Mo : au-delà, seules les métadonnées sont conservées localement.
-
 const formatSize = (n: number | null): string => {
   if (!n) return ''
   if (n < 1024) return `${n} o`
@@ -32,41 +30,40 @@ const guessType = (name: string): EvidenceTypeId => {
   return 'autre'
 }
 
-const readAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result))
-    r.onerror = () => reject(r.error)
-    r.readAsDataURL(file)
-  })
-
 export default function EvidencePanel({ gap }: { gap: Gap }) {
-  const { state, can, addEvidence, removeEvidence, notify } = useCompliance()
+  const { state, can, mode, addEvidence, uploadEvidence, removeEvidence, notify } = useCompliance()
   const evidence = state.evidence.filter((e) => e.gapId === gap.id)
   const [over, setOver] = useState(false)
   const [type, setType] = useState<EvidenceTypeId | ''>('')
   const [link, setLink] = useState({ name: '', url: '' })
   const [removing, setRemoving] = useState<Evidence | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
   const editable = can('edit') && !gap.archived
 
   const upload = async (files: FileList | null) => {
     if (!files) return
-    for (const file of Array.from(files)) {
-      const dataUrl = file.size <= MAX_INLINE ? await readAsDataUrl(file) : null
-      const res = addEvidence(gap.id, { name: file.name, size: file.size, type: type || guessType(file.name), dataUrl })
-      if (!res.ok) notify(res.error, 'error')
-      else notify(dataUrl ? `Preuve « ${file.name} » ajoutée.` : `« ${file.name} » référencée (fichier > 1 Mo : contenu non stocké dans le prototype).`, dataUrl ? 'success' : 'warning')
+    setUploading(true)
+    try {
+      for (const file of Array.from(files)) {
+        const res = await uploadEvidence(gap.id, file, type || guessType(file.name))
+        if (!res.ok) notify(res.error, 'error')
+        else if (mode === 'local' && !res.result.dataUrl)
+          notify(`« ${file.name} » référencée (fichier > 1 Mo : contenu non stocké en démonstration).`, 'warning')
+        else notify(`Preuve « ${file.name} » ajoutée.`)
+      }
+    } finally {
+      setUploading(false)
     }
   }
 
-  const addLink = (e: FormEvent) => {
+  const addLink = async (e: FormEvent) => {
     e.preventDefault()
     if (!/^https?:\/\//i.test(link.url.trim())) {
       notify('Le lien doit commencer par http:// ou https://', 'error')
       return
     }
-    const res = addEvidence(gap.id, { name: link.name || link.url, url: link.url, type: type || 'autre' })
+    const res = await addEvidence(gap.id, { name: link.name || link.url, url: link.url, type: type || 'autre' })
     if (!res.ok) notify(res.error, 'error')
     else {
       notify('Lien de preuve ajouté.')
@@ -96,6 +93,10 @@ export default function EvidencePanel({ gap }: { gap: Gap }) {
               {ev.url ? (
                 <a className="btn btn--ghost btn--sm" href={ev.url} target="_blank" rel="noopener noreferrer">
                   Ouvrir
+                </a>
+              ) : ev.fileKey ? (
+                <a className="btn btn--ghost btn--sm" href={`/api/evidence/${encodeURIComponent(ev.id)}/file`}>
+                  Télécharger
                 </a>
               ) : ev.dataUrl && !IS_ARTIFACT ? (
                 <a className="btn btn--ghost btn--sm" href={ev.dataUrl} download={ev.name}>
@@ -148,7 +149,13 @@ export default function EvidencePanel({ gap }: { gap: Gap }) {
           >
             <Icon name="paperclip" size={24} />
             <strong>Déposez un fichier ici</strong> ou cliquez pour parcourir
-            <div className="tiny">Capture, certificat, rapport d’audit, extrait de journal… (≤ 1 Mo stocké localement)</div>
+            <div className="tiny">
+              {uploading
+                ? 'Envoi en cours…'
+                : mode === 'api'
+                  ? 'Capture, certificat, rapport d’audit, extrait de journal…'
+                  : 'Capture, certificat, rapport d’audit, extrait de journal… (≤ 1 Mo stocké dans le navigateur en démonstration)'}
+            </div>
             <input ref={fileRef} type="file" multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = '' }} />
           </div>
           <form onSubmit={addLink} className="toolbar" style={{ marginTop: 16, marginBottom: 0 }}>
@@ -168,8 +175,8 @@ export default function EvidencePanel({ gap }: { gap: Gap }) {
           confirmLabel="Retirer"
           tone="accent"
           onClose={() => setRemoving(null)}
-          onConfirm={() => {
-            const r = removeEvidence(removing.id)
+          onConfirm={async () => {
+            const r = await removeEvidence(removing.id)
             !r.ok ? notify(r.error, 'error') : notify('Preuve retirée.')
             setRemoving(null)
           }}

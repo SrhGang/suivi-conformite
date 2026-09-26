@@ -5,6 +5,7 @@ import { IS_ARTIFACT } from '../platform'
 import { useComplianceShell } from '../store/ComplianceContext'
 import { activeGaps, isOpen } from '../utils/compliance'
 import { formatDateTime } from '../utils/dates'
+import { usersApi } from '../api/http'
 import { exportBackup, exportCsv, exportReport } from '../utils/report'
 import { useColorMode } from '../theme'
 import ExportDialog from './ExportDialog'
@@ -50,12 +51,13 @@ function useBreadcrumbs(): Crumb[] {
     if (pathname === '/roadmap')
       return [{ label: 'Plan d’action' }, { label: new URLSearchParams(search).get('vue') === 'kanban' ? 'Tableau Kanban' : 'Roadmap' }]
     if (pathname === '/referentiel') return [{ label: 'Conformité' }, { label: 'Référentiel ISO ↔ NIS2' }]
+    if (pathname === '/utilisateurs') return [{ label: 'Administration' }, { label: 'Utilisateurs' }]
     return [{ label: 'Page introuvable' }]
   }, [pathname, search, state?.gaps])
 }
 
 export default function Layout() {
-  const { state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can } = useComplianceShell()
+  const { mode, state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can, logout } = useComplianceShell()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const crumbs = useBreadcrumbs()
@@ -111,6 +113,19 @@ export default function Layout() {
     return pathname === path || pathname.startsWith(`${path}/`)
   }
 
+  /** Vérifie le chaînage du journal d'audit côté serveur. */
+  const verifyAudit = async () => {
+    try {
+      const res = await usersApi.verifyAudit()
+      if (!res.ok) return notify(res.error, 'error')
+      const r = res.report
+      if (r.ok) notify(`Journal d’audit intègre : ${r.count} entrées vérifiées.`)
+      else notify(`Journal d’audit altéré à l’entrée ${r.brokenAt?.id} : ${r.brokenAt?.reason}`, 'error')
+    } catch {
+      notify('Session expirée : reconnectez-vous.', 'error')
+    }
+  }
+
   const groups: NavGroup[] = [
     { items: [{ to: '/', label: 'Vue d’ensemble', icon: 'home' }] },
     {
@@ -137,21 +152,33 @@ export default function Layout() {
         { label: 'Export CSV des lacunes', icon: 'table', onClick: () => state && exportCsv(state) },
       ],
     },
-    {
-      title: 'Gestion des données',
-      icon: 'refresh',
-      items: [
-        { label: 'Sauvegarde JSON', icon: 'download', onClick: () => state && exportBackup(state) },
-        {
-          label: 'Importer une sauvegarde',
-          icon: 'upload',
-          disabled: !can('admin'),
-          title: !can('admin') ? 'Réservé au responsable validant' : undefined,
-          onClick: () => fileRef.current?.click(),
+    mode === 'api'
+      ? {
+          title: 'Administration',
+          icon: 'user',
+          items: [
+            ...(can('admin') ? [{ to: '/utilisateurs', label: 'Utilisateurs', icon: 'user' as const }] : []),
+            ...(currentUser && currentUser.role !== 'contributeur'
+              ? [{ label: 'Vérifier le journal d’audit', icon: 'shield' as const, onClick: () => void verifyAudit() }]
+              : []),
+            { label: 'Export JSON des données', icon: 'download', onClick: () => state && exportBackup(state) },
+          ],
+        }
+      : {
+          title: 'Gestion des données',
+          icon: 'refresh',
+          items: [
+            { label: 'Sauvegarde JSON', icon: 'download', onClick: () => state && exportBackup(state) },
+            {
+              label: 'Importer une sauvegarde',
+              icon: 'upload',
+              disabled: !can('admin'),
+              title: !can('admin') ? 'Réservé au responsable validant' : undefined,
+              onClick: () => fileRef.current?.click(),
+            },
+            { label: 'Réinitialiser la démo', icon: 'refresh', onClick: () => setConfirmReset(true) },
+          ],
         },
-        { label: 'Réinitialiser la démo', icon: 'refresh', onClick: () => setConfirmReset(true) },
-      ],
-    },
   ]
 
   return (
@@ -180,7 +207,19 @@ export default function Layout() {
         >
           <Icon name={colorMode === 'dark' ? 'sun' : 'moon'} size={18} />
         </button>
-        {state && currentUser && (
+        {state && currentUser && mode === 'api' && (
+          <div className="user-menu">
+            <div className="user-menu__who">
+              <strong>{currentUser.name}</strong>
+              <span>{ROLES[currentUser.role].label}</span>
+            </div>
+            <Avatar user={currentUser} />
+            <button className="btn btn--ghost btn--sm" onClick={() => void logout()}>
+              Se déconnecter
+            </button>
+          </div>
+        )}
+        {state && currentUser && mode === 'local' && (
           <div className="user-switch">
             <label className="sr-only" htmlFor="user-select">
               Utilisateur connecté
@@ -272,8 +311,8 @@ export default function Layout() {
         </main>
         {state && (
           <footer className="app-footer">
-            Dernière mise à jour : {formatDateTime(state.lastUpdated)} · v0.2 (prototype)
-            {IS_ARTIFACT && ' · Démo en ligne : vos modifications restent dans ce navigateur'}
+            Dernière mise à jour : {formatDateTime(state.lastUpdated)} · v1.0
+            {mode === 'local' && (IS_ARTIFACT ? ' · Démo en ligne : vos modifications restent dans ce navigateur' : ' · Mode démonstration (données locales)')}
           </footer>
         )}
       </div>

@@ -268,7 +268,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: Gantt
     const moved = drag.moved || Math.abs(e.clientX - drag.startX) > 3
     setDrag((d) => (d ? { ...d, moved, dStart: d.mode === 'move' ? days : 0, dEnd: days } : d))
   }
-  const onPointerUp = (r: Remediation) => {
+  const onPointerUp = async (r: Remediation) => {
     if (!drag) return
     const { moved, dStart, dEnd } = drag
     setDrag(null)
@@ -280,7 +280,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: Gantt
     const startDate = addDays(r.startDate, dStart)
     let targetDate = addDays(r.targetDate, dEnd)
     if (targetDate < startDate) targetDate = startDate
-    const res = updateRemediation(r.id, { startDate, targetDate })
+    const res = await updateRemediation(r.id, { startDate, targetDate })
     if (!res.ok) notify(res.error, 'error')
     else notify(`${r.id} : échéance au ${formatDate(targetDate)}.`)
   }
@@ -422,7 +422,7 @@ function Kanban({ items, gapIndex, onOpen }: { items: Remediation[]; gapIndex: G
   const [over, setOver] = useState<RemediationStatusId | null>(null)
   const editable = can('edit')
 
-  const drop = (status: RemediationStatusId) => {
+  const drop = async (status: RemediationStatusId) => {
     setOver(null)
     const r = items.find((x) => x.id === dragId)
     setDragId(null)
@@ -430,7 +430,7 @@ function Kanban({ items, gapIndex, onOpen }: { items: Remediation[]; gapIndex: G
     const changes: Partial<RemediationInput> = { status }
     if (status === 'valide') changes.progress = 100
     else if (r.status === 'valide') changes.progress = 90
-    const res = updateRemediation(r.id, changes)
+    const res = await updateRemediation(r.id, changes)
     if (!res.ok) notify(res.error, 'error')
     else notify(`${r.id} → ${REMEDIATION_STATUS_BY_ID[status].label}`)
   }

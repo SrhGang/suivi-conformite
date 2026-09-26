@@ -4,3 +4,5 @@ dist
 .DS_Store
 dist-artifact
 artifact/
+.env
+server/data

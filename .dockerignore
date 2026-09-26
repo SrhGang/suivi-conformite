@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+dist-artifact
+artifact
+.git
+.github
+docs
+*.log
+.env
+server/data

@@ -22,7 +22,6 @@ const safeJs = js[0].replace(/<\/script/gi, '<\\/script')
 
 const html = `<title>Suivi de conformité ISO 27001</title>
 <meta name="description" content="Suivi des lacunes ISO 27001:2022 / NIS2-ANSSI — prototype interactif">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
 <style>
 ${css.join('\n')}
 </style>

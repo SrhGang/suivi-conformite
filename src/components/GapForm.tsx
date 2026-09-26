@@ -48,6 +48,7 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
   const [nis2Touched, setNis2Touched] = useState(editing)
   const [dueTouched, setDueTouched] = useState(editing)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('')
 
   const set = <K extends keyof GapFormState>(k: K, v: GapFormState[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -76,9 +77,12 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
     })).filter((t) => t.controls.length)
   }, [filter])
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const res = editing ? updateGap(gap.id, form) : createGap(form)
+    if (saving) return
+    setSaving(true)
+    const res = gap ? await updateGap(gap.id, form) : await createGap(form)
+    setSaving(false)
     if (!res.ok) {
       setErrors(res.errors ?? {})
       notify(res.error, 'error')
@@ -212,7 +216,7 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
           <button type="button" className="btn btn--secondary" onClick={onClose}>
             Annuler
           </button>
-          <button type="submit" className="btn btn--primary">
+          <button type="submit" className="btn btn--primary" disabled={saving}>
             {editing ? 'Enregistrer' : 'Créer la lacune'}
           </button>
         </div>

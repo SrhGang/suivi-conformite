@@ -125,7 +125,11 @@ export default function GapsInventory() {
     else update({ tri: key, ordre: key === 'criticality' || key === 'progress' ? 'desc' : 'asc' }, false)
   }
 
-  const act = <T,>(res: ApiResult<T>, msg: (result: T) => string) => (!res.ok ? notify(res.error, 'error') : notify(msg(res.result)))
+  const act = async <T,>(pending: Promise<ApiResult<T>>, msg: (result: T) => string) => {
+    const res = await pending
+    if (!res.ok) notify(res.error, 'error')
+    else notify(msg(res.result))
+  }
 
   return (
     <div className="page">
@@ -307,10 +311,7 @@ export default function GapsInventory() {
                                 icon: 'copy',
                                 label: 'Dupliquer',
                                 disabled: !can('edit'),
-                                onClick: () => {
-                                  const r = duplicateGap(g.id)
-                                  act(r, (copy) => `Lacune dupliquée : ${copy.id}`)
-                                },
+                                onClick: () => act(duplicateGap(g.id), (copy) => `Lacune dupliquée : ${copy.id}`),
                               },
                               g.archived
                                 ? { icon: 'restore', label: 'Restaurer', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => act(restoreGap(g.id), () => `${g.id} restaurée.`) }

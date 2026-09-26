@@ -1,0 +1,70 @@
+# Déploiement sur une VM : Caddy (HTTPS) + API + PostgreSQL.
+#   cp .env.example .env   # puis renseigner les secrets
+#   docker compose up -d --build
+name: conformite
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: conformite
+      POSTGRES_USER: conformite_owner
+      POSTGRES_PASSWORD: ${OWNER_DB_PASSWORD:?à définir dans .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?à définir dans .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./ops/db-init.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U conformite_owner -d conformite']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  api:
+    build: { context: ., target: api }
+    image: conformite-api:latest
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://conformite_app:${APP_DB_PASSWORD}@db:5432/conformite
+      DATABASE_ADMIN_URL: postgres://conformite_owner:${OWNER_DB_PASSWORD}@db:5432/conformite
+      APP_SECRET: ${APP_SECRET:?à définir dans .env}
+      PUBLIC_ORIGIN: https://${DOMAIN:?à définir dans .env}
+      ORG_NAME: ${ORG_NAME:-Mon organisme}
+      ORG_SECTOR: ${ORG_SECTOR:-}
+      TOTP_ISSUER: ${TOTP_ISSUER:-Conformité ISO 27001}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+      COOKIE_SECURE: 'true'
+      TRUST_PROXY: 'true'
+    volumes:
+      - uploads:/data/uploads
+    networks: [internal]
+
+  web:
+    build: { context: ., target: web }
+    image: conformite-web:latest
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?à définir dans .env}
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [internal]
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
