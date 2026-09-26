@@ -108,7 +108,7 @@ p {
 
 .app-header {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: var(--z-sticky);
   background: var(--primary-800);
   color: white;

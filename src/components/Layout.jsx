@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { ROLES } from '../data/constants.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
 import { formatDateTime } from '../utils/dates.js'
 import { exportBackup } from '../utils/report.js'
+import ExportDialog from './ExportDialog.jsx'
 import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui.jsx'
 
 const NAV = [
@@ -113,6 +115,7 @@ export default function Layout() {
           <div className="app-footer__inner">
             <span>
               {state.organization.name} · Dernière mise à jour : {formatDateTime(state.lastUpdated)} · v0.1 (prototype)
+              {IS_ARTIFACT && ' · Démo en ligne : vos modifications restent dans ce navigateur'}
             </span>
             <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <button className="link-button" onClick={() => exportBackup(state)}>
@@ -144,6 +147,7 @@ export default function Layout() {
           }}
         />
       )}
+      <ExportDialog />
       <Toasts />
     </>
   )

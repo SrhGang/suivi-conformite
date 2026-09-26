@@ -16,6 +16,7 @@ import {
   weightedScore,
 } from '../utils/compliance.js'
 import { formatDate, formatDateTime } from '../utils/dates.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { exportCsv, exportReport, printReport } from '../utils/report.js'
 
 const CRIT_COLORS = { critique: 'var(--error)', haute: 'var(--warning)', moyenne: 'var(--medium)', basse: 'var(--info)' }
@@ -49,9 +50,9 @@ export default function Dashboard() {
   const nextMilestone = state.milestones.find((m) => m.date >= new Date().toISOString().slice(0, 10))
   const exportItems = [
     { icon: '📄', label: 'Rapport HTML', onClick: () => exportReport(state) },
-    { icon: '🖨️', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') },
+    !IS_ARTIFACT && { icon: '🖨️', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') },
     { icon: '📊', label: 'Export CSV des lacunes', onClick: () => exportCsv(state) },
-  ]
+  ].filter(Boolean)
 
   if (!data.gaps.length) {
     return (

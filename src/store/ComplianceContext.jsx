@@ -6,7 +6,12 @@ const STORAGE_KEY = 'suivi-conformite:v1'
 const ComplianceContext = createContext(null)
 
 const readStorage = () => {
-  const raw = localStorage.getItem(STORAGE_KEY)
+  let raw = null
+  try {
+    raw = localStorage.getItem(STORAGE_KEY)
+  } catch {
+    // Stockage indisponible (navigation privée, aperçu) : données de démonstration.
+  }
   if (!raw) return buildDemoData()
   const parsed = JSON.parse(raw)
   if (!parsed?.gaps || !parsed?.users) throw new Error('Données locales invalides')

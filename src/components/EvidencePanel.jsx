@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { EVIDENCE_TYPES, EVIDENCE_TYPE_BY_ID } from '../data/constants.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
 import { formatDateTime } from '../utils/dates.js'
 import { ConfirmDialog, UserName } from './ui.jsx'
@@ -93,13 +94,13 @@ export default function EvidencePanel({ gap }) {
                 <a className="btn btn--ghost btn--sm" href={ev.url} target="_blank" rel="noopener noreferrer">
                   Ouvrir ↗
                 </a>
-              ) : ev.dataUrl ? (
+              ) : ev.dataUrl && !IS_ARTIFACT ? (
                 <a className="btn btn--ghost btn--sm" href={ev.dataUrl} download={ev.name}>
                   Télécharger
                 </a>
               ) : (
-                <span className="tiny muted" title="Fichier de démonstration ou trop volumineux : seules les métadonnées sont conservées.">
-                  métadonnées
+                <span className="tiny muted" title={ev.dataUrl ? 'Fichier conservé dans ce navigateur.' : 'Fichier de démonstration ou trop volumineux : seules les métadonnées sont conservées.'}>
+                  {ev.dataUrl ? 'stocké localement' : 'métadonnées'}
                 </span>
               )}
               {editable && (

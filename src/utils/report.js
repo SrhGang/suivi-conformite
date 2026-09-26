@@ -22,6 +22,7 @@ import {
   weightedScore,
 } from './compliance.js'
 import { formatDate, formatDateTime, toISODate } from './dates.js'
+import { IS_ARTIFACT } from '../platform.js'
 
 const esc = (s) =>
   String(s ?? '')
@@ -30,7 +31,14 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 
+export const EXPORT_EVENT = 'conformite:export'
+
 export const download = (filename, content, mime) => {
+  if (IS_ARTIFACT) {
+    // Téléchargement bloqué dans la page hébergée : on affiche le contenu à copier.
+    window.dispatchEvent(new CustomEvent(EXPORT_EVENT, { detail: { filename, content, mime } }))
+    return
+  }
   const blob = new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -162,6 +170,10 @@ export const exportReport = (state) =>
   download(`rapport-conformite-${toISODate(new Date())}.html`, buildReportHtml(state), 'text/html;charset=utf-8')
 
 export const printReport = (state) => {
+  if (IS_ARTIFACT) {
+    exportReport(state)
+    return true
+  }
   const w = window.open('', '_blank')
   if (!w) return false
   w.document.write(buildReportHtml(state))
