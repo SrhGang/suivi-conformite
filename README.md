@@ -34,7 +34,7 @@ La logique métier (`src/store/actions.ts`) est la même dans les deux modes : l
 ```bash
 # Développement avec le serveur (PostgreSQL local requis)
 cd server && npm install
-DATABASE_URL=postgres://… APP_SECRET=$(openssl rand -base64 48) PUBLIC_ORIGIN=http://localhost:5173 COOKIE_SECURE=false npm run dev
+DATABASE_URL=postgres://… APP_SECRET=$(openssl rand -hex 32) PUBLIC_ORIGIN=http://localhost:5173 COOKIE_SECURE=false npm run dev
 npm run cli -- create-user --email moi@exemple.fr --name "Moi" --role responsable
 cd .. && npm run dev:api        # le proxy Vite redirige /api vers :3000
 
@@ -42,7 +42,7 @@ cd .. && npm run dev:api        # le proxy Vite redirige /api vers :3000
 cd server && TEST_DATABASE_ADMIN_URL=… TEST_DATABASE_URL=… npm test
 ```
 
-Déploiement sur une VM (Docker Compose, Caddy HTTPS, sauvegardes, choix de l'hébergeur) : voir **[docs/deploiement.md](docs/deploiement.md)**. La CI GitHub Actions (`.github/workflows/ci.yml`) vérifie les types, lance les tests front et serveur (avec PostgreSQL) et construit les images Docker.
+Déploiement sur une VM (Proxmox, Tailscale, secrets chiffrés avec systemd-creds, Docker Compose, sauvegardes, choix de l'hébergeur) : voir **[docs/deploiement.md](docs/deploiement.md)**. La CI GitHub Actions (`.github/workflows/ci.yml`) vérifie les types, lance les tests front et serveur (avec PostgreSQL) et construit les images Docker.
 
 ## Pages
 

@@ -8,6 +8,7 @@
  */
 import { buildDemoData } from '../../src/data/demoData'
 import type { ComplianceState, Role } from '../../src/types'
+import { adminDatabaseUrl } from './config'
 import { WRITE_LOCK_KEY, createPool, migrate, withTx } from './db'
 import { verifyHistory } from './history'
 import { hashPassword, initialsOf, newId, temporaryPassword } from './security'
@@ -26,11 +27,7 @@ const need = (name: string): string => {
   return v
 }
 
-const dbUrl = () => {
-  const url = process.env.DATABASE_ADMIN_URL || process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL (ou DATABASE_ADMIN_URL) doit être défini.')
-  return url
-}
+const dbUrl = adminDatabaseUrl
 
 async function main() {
   switch (command) {

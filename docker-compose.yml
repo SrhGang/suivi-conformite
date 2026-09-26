@@ -1,6 +1,8 @@
 # Déploiement sur une VM : Caddy (HTTPS) + API + PostgreSQL.
-#   cp .env.example .env   # puis renseigner les secrets
+#   cp .env.example .env && ops/secrets.sh generate   # ou : sudo ops/secrets.sh systemd-creds
 #   docker compose up -d --build
+# Les mots de passe et la clé applicative sont des secrets Docker (fichiers
+# montés dans /run/secrets), jamais des variables d'environnement.
 name: conformite
 
 services:
@@ -10,8 +12,8 @@ services:
     environment:
       POSTGRES_DB: conformite
       POSTGRES_USER: conformite_owner
-      POSTGRES_PASSWORD: ${OWNER_DB_PASSWORD:?à définir dans .env}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?à définir dans .env}
+      POSTGRES_PASSWORD_FILE: /run/secrets/owner_db_password
+    secrets: [owner_db_password, app_db_password]
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./ops/db-init.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
@@ -29,9 +31,11 @@ services:
     depends_on:
       db: { condition: service_healthy }
     environment:
-      DATABASE_URL: postgres://conformite_app:${APP_DB_PASSWORD}@db:5432/conformite
-      DATABASE_ADMIN_URL: postgres://conformite_owner:${OWNER_DB_PASSWORD}@db:5432/conformite
-      APP_SECRET: ${APP_SECRET:?à définir dans .env}
+      DATABASE_URL: postgres://conformite_app@db:5432/conformite
+      DATABASE_PASSWORD_FILE: /run/secrets/app_db_password
+      DATABASE_ADMIN_URL: postgres://conformite_owner@db:5432/conformite
+      DATABASE_ADMIN_PASSWORD_FILE: /run/secrets/owner_db_password
+      APP_SECRET_FILE: /run/secrets/app_secret
       PUBLIC_ORIGIN: https://${DOMAIN:?à définir dans .env}
       ORG_NAME: ${ORG_NAME:-Mon organisme}
       ORG_SECTOR: ${ORG_SECTOR:-}
@@ -39,6 +43,7 @@ services:
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
       COOKIE_SECURE: 'true'
       TRUST_PROXY: 'true'
+    secrets: [app_db_password, owner_db_password, app_secret]
     volumes:
       - uploads:/data/uploads
     networks: [internal]
@@ -48,17 +53,27 @@ services:
     image: conformite-web:latest
     restart: unless-stopped
     depends_on: [api]
+    # BIND_ADDRESS : adresse d'écoute sur la VM (par ex. l'IP Tailscale 100.x.y.z
+    # pour n'exposer l'application que sur le tailnet).
     ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
+      - '${BIND_ADDRESS:-0.0.0.0}:80:80'
+      - '${BIND_ADDRESS:-0.0.0.0}:443:443'
+      - '${BIND_ADDRESS:-0.0.0.0}:443:443/udp'
     environment:
       DOMAIN: ${DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?à définir dans .env}
     volumes:
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]
+
+# Fichiers générés par ops/secrets.sh (./secrets) ou déchiffrés par systemd-creds (/run/conformite).
+secrets:
+  owner_db_password:
+    file: ${SECRETS_DIR:-./secrets}/owner_db_password
+  app_db_password:
+    file: ${SECRETS_DIR:-./secrets}/app_db_password
+  app_secret:
+    file: ${SECRETS_DIR:-./secrets}/app_secret
 
 volumes:
   db-data:

@@ -1,7 +1,9 @@
-# Caddy : certificat HTTPS Let's Encrypt automatique pour {$DOMAIN},
-# fichiers statiques du frontend et proxy vers l'API.
+# Caddy : certificat HTTPS automatique pour {$DOMAIN}, fichiers statiques du
+# frontend et proxy vers l'API.
+#  - domaine public : certificat Let's Encrypt (ports 80/443 joignables) ;
+#  - nom MagicDNS en *.ts.net : certificat délivré par Tailscale via le socket
+#    tailscaled (voir ops/compose.tailscale.yml).
 {
-	email {$ACME_EMAIL}
 	servers {
 		trusted_proxies static private_ranges
 	}
