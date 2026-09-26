@@ -1,0 +1,36 @@
+# Service systemd : déchiffre les secrets (systemd-creds) en mémoire puis démarre la pile Docker.
+#   sudo cp ops/systemd/conformite.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now conformite
+# Adapter WorkingDirectory si le dépôt n'est pas dans /opt/suivi-conformite.
+[Unit]
+Description=Suivi de conformité ISO 27001 (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/suivi-conformite
+TimeoutStartSec=300
+
+LoadCredentialEncrypted=owner_db_password:/etc/credstore.encrypted/conformite.owner_db_password
+LoadCredentialEncrypted=app_db_password:/etc/credstore.encrypted/conformite.app_db_password
+LoadCredentialEncrypted=app_secret:/etc/credstore.encrypted/conformite.app_secret
+
+# /run est en mémoire : les secrets déchiffrés ne touchent jamais le disque
+# et sont effacés à l'arrêt du service.
+RuntimeDirectory=conformite
+RuntimeDirectoryMode=0700
+
+# Après un arrêt brutal, supprime les conteneurs restants (sinon Docker les
+# redémarre au boot sans leurs secrets).
+ExecStartPre=-/usr/bin/docker compose down
+# Si l'application n'écoute que sur l'IP Tailscale (BIND_ADDRESS), attend l'interface.
+ExecStartPre=/bin/sh -c 'ip link show tailscale0 > /dev/null 2>&1 || exit 0; for i in $(seq 60); do ip -4 addr show tailscale0 | grep -q inet && exit 0; sleep 1; done; exit 1'
+ExecStartPre=/bin/sh -c 'rm -rf /run/conformite/*; for n in owner_db_password app_db_password app_secret; do install -m 0444 "$CREDENTIALS_DIRECTORY/$n" "/run/conformite/$n"; done'
+ExecStart=/usr/bin/docker compose up -d --wait
+ExecStop=/usr/bin/docker compose down
+
+[Install]
+WantedBy=multi-user.target

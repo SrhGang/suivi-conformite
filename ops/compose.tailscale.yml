@@ -1,0 +1,9 @@
+# Accès par le nom MagicDNS Tailscale (machine.nom-du-tailnet.ts.net).
+# Activer en ajoutant dans .env :
+#   COMPOSE_FILE=docker-compose.yml:ops/compose.tailscale.yml
+# Caddy obtient alors le certificat HTTPS auprès de tailscaled (installé sur la VM)
+# au lieu de Let's Encrypt : aucun port n'a besoin d'être ouvert sur Internet.
+services:
+  web:
+    volumes:
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock

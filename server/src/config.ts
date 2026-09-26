@@ -1,4 +1,25 @@
-/** Configuration de l'API, lue dans les variables d'environnement. */
+/**
+ * Configuration de l'API, lue dans les variables d'environnement.
+ * Les secrets peuvent aussi être lus dans des fichiers (variable `NOM_FILE`),
+ * par exemple des secrets Docker déchiffrés par systemd-creds.
+ */
+import { readFileSync } from 'node:fs'
+
+/** Valeur de `name`, ou contenu du fichier désigné par `name_FILE`. */
+const secret = (name: string): string | undefined => {
+  const file = process.env[`${name}_FILE`]
+  if (file) return readFileSync(file, 'utf8').trim()
+  return process.env[name]
+}
+
+/** Ajoute à une URL PostgreSQL le mot de passe lu dans `passwordVar_FILE`, s'il est fourni. */
+const withPassword = (url: string, passwordVar: string): string => {
+  const password = secret(passwordVar)
+  if (!password) return url
+  const u = new URL(url)
+  u.password = encodeURIComponent(password)
+  return u.toString()
+}
 
 const env = (name: string, fallback?: string): string => {
   const v = process.env[name] ?? fallback
@@ -42,14 +63,21 @@ export interface Config {
   appSecret: string
 }
 
+/** URL propriétaire (migrations, CLI), ou à défaut l'URL applicative. */
+export function adminDatabaseUrl(): string {
+  const adminUrl = process.env.DATABASE_ADMIN_URL
+  return adminUrl ? withPassword(adminUrl, 'DATABASE_ADMIN_PASSWORD') : withPassword(env('DATABASE_URL'), 'DATABASE_PASSWORD')
+}
+
 export function loadConfig(): Config {
-  const databaseUrl = env('DATABASE_URL')
-  if ((process.env.APP_SECRET ?? '').length < 32) throw new Error('APP_SECRET doit contenir au moins 32 caractères (ex. : openssl rand -base64 48).')
+  const databaseUrl = withPassword(env('DATABASE_URL'), 'DATABASE_PASSWORD')
+  const appSecret = secret('APP_SECRET') ?? ''
+  if (appSecret.length < 32) throw new Error('APP_SECRET doit contenir au moins 32 caractères (ex. : openssl rand -hex 32).')
   return {
     port: int('PORT', 3000),
     host: env('HOST', '0.0.0.0'),
     databaseUrl,
-    databaseAdminUrl: process.env.DATABASE_ADMIN_URL || databaseUrl,
+    databaseAdminUrl: adminDatabaseUrl(),
     publicOrigin: env('PUBLIC_ORIGIN', 'http://localhost:5173').replace(/\/$/, ''),
     cookieSecure: bool('COOKIE_SECURE', true),
     sessionIdleMinutes: int('SESSION_IDLE_MINUTES', 120),
@@ -57,9 +85,9 @@ export function loadConfig(): Config {
     uploadDir: env('UPLOAD_DIR', './data/uploads'),
     maxUploadMb: int('MAX_UPLOAD_MB', 20),
     organizationName: env('ORG_NAME', 'Mon organisme'),
-    organizationSector: env('ORG_SECTOR', ''),
+    organizationSector: process.env.ORG_SECTOR ?? '',
     totpIssuer: env('TOTP_ISSUER', 'Conformité ISO 27001'),
     trustProxy: bool('TRUST_PROXY', true),
-    appSecret: env('APP_SECRET'),
+    appSecret,
   }
 }
