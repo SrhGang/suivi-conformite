@@ -17,32 +17,20 @@ Deux choix indépendants :
 | **Accès** | Domaine public + Let's Encrypt (ports 80/443 ouverts) | **Tailscale** : nom MagicDNS `*.ts.net`, rien d'exposé sur Internet |
 | **Secrets** | Fichiers dans `./secrets` (en clair, répertoire 0700) | **systemd-creds** : chiffrés au repos, déchiffrés en mémoire au démarrage |
 
-## 1. Où faire tourner les VM
+## 1. Choisir la VM
 
 Besoins de l'application : 2 vCPU, 2 à 4 Go de RAM, 20 Go de disque. L'outil contient la liste des failles de l'organisme, donc les données doivent rester **dans l'UE**.
 
-| Solution | Coût (sept. 2026) | Nombre de VM | Pour qui |
+| Offre | Ressources | Prix indicatif (sept. 2026) | Remarques |
 |---|---|---|---|
-| **Mini-PC chez vous + Proxmox** (Intel N100/N150, 16–32 Go, SSD NVMe) | 150–300 € une fois + ≈ 2 €/mois d'électricité (6–10 W) | 4 à 8 petites VM | Le moins cher dans la durée. Avec Tailscale, aucun port à ouvrir sur la box. Dépend de votre connexion et de votre courant |
-| **Serveur dédié Hetzner (Server Auction) + Proxmox** | à partir de ≈ 39 €/mois, sans frais d'installation | 10 à 20 VM (souvent 64 Go de RAM) | Hébergé en datacenter (Allemagne, Finlande), fiable. Rentable dès ≈ 7 VM |
-| Kimsufi (OVHcloud) + Proxmox | à partir de ≈ 10 € HT/mois | quelques VM (matériel modeste) | Français, mais peu de RAM sur l'entrée de gamme |
-| VM cloud Hetzner CX23 (sans Proxmox) | ≈ 5,50 €/mois par VM | 1 VM = 1 abonnement | Le plus simple tant que vous avez moins de 5–6 VM |
+| **Hetzner Cloud CX23** (recommandé) | 2 vCPU, 4 Go, 40 Go, 20 To de trafic | ≈ 5,50 € / mois HT | Le moins cher. Facturation à l'heure, VM créée ou détruite en une minute, réseau privé entre VM, pare-feu, snapshots |
+| OVHcloud VPS-1 | 4 vCore, 8 Go, 75 Go | ≈ 7,80 € / mois HT | Société française. Facturation mensuelle, moins souple pour multiplier les VM |
 
-**Recommandation** : pour monter plusieurs VM au moindre coût, installez Proxmox sur un mini-PC chez vous si votre connexion est stable. Sinon, prenez un serveur de la Server Auction Hetzner. Dans les deux cas, Tailscale donne l'accès sans IP publique par VM : sur un dédié, vous n'avez donc pas à louer d'IP supplémentaires, et les VM restent derrière un pont NAT.
+Chaque VM supplémentaire (recette, base séparée, supervision…) coûte le prix d'une CX23. À la création, choisissez Debian 12 ou Ubuntu 24.04, un datacenter européen (Nuremberg, Falkenstein, Helsinki) et votre clé SSH. Attachez un **pare-feu Hetzner** : TCP 22 le temps de l'installation, puis uniquement UDP 41641 (connexions directes Tailscale) une fois Tailscale en place. Sans Tailscale, gardez 22, 80 et 443. L'option de sauvegarde Hetzner (+20 % du prix de la VM) fait une image quotidienne de la VM.
 
 Les prix changent souvent : vérifiez-les avant de commander.
 
-## 2. Proxmox
-
-1. Installez Proxmox VE sur l'hôte. Chez Hetzner, passez par l'image Debian de `installimage`, puis ajoutez le dépôt Proxmox.
-2. Mettez l'interface Proxmox (port 8006) **derrière Tailscale** : installez Tailscale sur l'hôte et bloquez le port 8006 côté Internet (pare-feu Proxmox ou pare-feu Hetzner).
-3. Sur un dédié, créez un pont NAT privé (`vmbr1`, par ex. 10.10.10.0/24) pour les VM.
-4. Créez la VM de l'application :
-   - Debian 12 ou Ubuntu 24.04, 2 vCPU, 4 Go de RAM, 30 Go de disque, type de CPU `host` ;
-   - **Matériel › Ajouter › TPM State (v2.0)** : systemd-creds liera alors le chiffrement des secrets à ce TPM virtuel ;
-   - activez l'agent QEMU et les sauvegardes Proxmox (`vzdump`) de la VM.
-
-## 3. Préparer la VM
+## 2. Préparer la VM
 
 ```bash
 adduser deploy && usermod -aG sudo deploy
@@ -73,7 +61,7 @@ Chaque utilisateur installe le client Tailscale sur son poste. Le plan gratuit P
 
 > Les certificats `*.ts.net` sont publiés dans les journaux publics Certificate Transparency : le nom de la machine et celui du tailnet deviennent visibles. Choisissez des noms neutres.
 
-Pare-feu : n'autorisez que le tailnet. Avant de l'activer, reconnectez-vous par Tailscale (`ssh deploy@conformite`) pour ne pas perdre votre session. La console Proxmox reste un accès de secours.
+Pare-feu : n'autorisez que le tailnet. Avant de l'activer, reconnectez-vous par Tailscale (`ssh deploy@conformite`) pour ne pas perdre votre session. La console web Hetzner reste un accès de secours.
 
 ```bash
 ufw default deny incoming
@@ -81,13 +69,13 @@ ufw allow in on tailscale0
 ufw enable
 ```
 
-Docker publie ses ports en contournant `ufw` : c'est `BIND_ADDRESS` (étape 4) qui garantit que l'application n'écoute que sur l'IP Tailscale.
+Docker publie ses ports en contournant `ufw` : c'est `BIND_ADDRESS` (étape 3) qui garantit que l'application n'écoute que sur l'IP Tailscale.
 
 ### Sans Tailscale (domaine public)
 
 Créez un enregistrement DNS `A`/`AAAA` vers l'IP publique, ouvrez 80 et 443 (`ufw allow 80,443/tcp`) et laissez `COMPOSE_FILE` et `BIND_ADDRESS` commentés dans `.env`.
 
-## 4. Installer l'application
+## 3. Installer l'application
 
 ```bash
 sudo mkdir -p /opt/suivi-conformite && sudo chown deploy: /opt/suivi-conformite
@@ -122,14 +110,14 @@ curl https://conformite.<votre-tailnet>.ts.net/api/health
 ```
 
 À chaque démarrage, le service :
-1. déchiffre les secrets (clé de la machine + TPM virtuel) ;
+1. déchiffre les secrets avec la clé de la machine ;
 2. les copie dans `/run/conformite`, qui est en mémoire ;
 3. lance la pile ;
 4. efface les secrets à l'arrêt.
 
-Ils ne sont donc jamais en clair sur le disque, ni dans `.env`, ni dans `docker inspect`. Si `systemd-creds has-tpm2` indique qu'il n'y a pas de TPM, le chiffrement repose sur la seule clé `/var/lib/systemd/credential.secret`.
+Ils ne sont donc jamais en clair sur le disque, ni dans `.env`, ni dans `docker inspect`. Les VM cloud n'ont pas de TPM : le chiffrement repose sur la clé `/var/lib/systemd/credential.secret`, lisible par root seulement. Il protège les secrets d'une fuite du dépôt, d'un `.env` copié par erreur ou d'une sauvegarde exposée sans cette clé, mais pas d'un attaquant déjà root sur la VM.
 
-**Copiez les secrets dans votre coffre de mots de passe**, avec `sudo ops/secrets.sh show app_secret` (et de même pour `owner_db_password` et `app_db_password`). Sans `app_secret`, les doubles authentifications ne sont plus lisibles. Si la VM est restaurée sans son TPM, les fichiers chiffrés sont illisibles : il faudra les recréer à partir du coffre.
+**Copiez les secrets dans votre coffre de mots de passe**, avec `sudo ops/secrets.sh show app_secret` (et de même pour `owner_db_password` et `app_db_password`). Sans `app_secret`, les doubles authentifications ne sont plus lisibles. Si la VM est reconstruite, les fichiers chiffrés sont illisibles sans l'ancienne clé : il faudra les recréer à partir du coffre.
 
 ### Secrets en fichiers (option simple)
 
@@ -140,7 +128,7 @@ docker compose up -d --build
 
 Les migrations de la base s'appliquent au démarrage de l'API.
 
-## 5. Créer le premier compte
+## 4. Créer le premier compte
 
 ```bash
 docker compose exec api node dist/cli.js create-user \
@@ -149,7 +137,7 @@ docker compose exec api node dist/cli.js create-user \
 
 Le mot de passe temporaire s'affiche une seule fois. À la première connexion, il faut le changer (12 caractères minimum) puis activer la double authentification (FreeOTP, Aegis, Microsoft ou Google Authenticator…). Les comptes suivants se créent depuis la page **Administration › Utilisateurs**.
 
-## 6. Sauvegardes
+## 5. Sauvegardes
 
 ```bash
 sudo mkdir -p /var/backups/conformite && sudo chown deploy: /var/backups/conformite
@@ -157,9 +145,9 @@ crontab -e
 # 15 2 * * * cd /opt/suivi-conformite && ops/backup.sh >> /var/log/conformite-backup.log 2>&1
 ```
 
-`ops/backup.sh` produit chaque nuit un dump PostgreSQL et une archive des preuves, conservés 14 jours (`RETENTION_DAYS`). Les sauvegardes Proxmox de la VM viennent en complément. Pour aller plus loin, installez Proxmox Backup Server dans une VM ou sur une autre machine.
+`ops/backup.sh` produit chaque nuit un dump PostgreSQL et une archive des preuves, conservés 14 jours (`RETENTION_DAYS`). Les sauvegardes Hetzner de la VM viennent en complément.
 
-**Gardez aussi une copie hors de l'hôte Proxmox** : Storage Box Hetzner, autre site, ou disque externe. Chiffrez-la, par exemple avec `restic`. Une panne ou un vol de l'hôte ne doit pas emporter les sauvegardes.
+**Copiez-les hors de la VM** (Storage Box Hetzner, stockage objet, autre VM) et chiffrez-les, par exemple avec `restic`. La perte de la VM ne doit pas emporter les sauvegardes.
 
 Restauration :
 
@@ -168,9 +156,9 @@ docker compose exec -T db pg_restore -U conformite_owner -d conformite --clean -
 docker compose exec -T api tar -C /data -xzf - < uploads-AAAAMMJJ-HHMMSS.tar.gz
 ```
 
-Testez une restauration dans une VM de recette (clonée dans Proxmox) au moins une fois par trimestre.
+Testez une restauration dans une VM de recette au moins une fois par trimestre.
 
-## 7. Exploitation
+## 6. Exploitation
 
 | Besoin | Commande |
 |---|---|
@@ -180,11 +168,11 @@ Testez une restauration dans une VM de recette (clonée dans Proxmox) au moins u
 | Débloquer ou réinitialiser un compte | page Utilisateurs (« Réinitialiser l'accès ») |
 | Charger la démo dans une VM de test | `docker compose exec api node dist/cli.js seed-demo` |
 
-## 8. Plusieurs VM
+## 7. Plusieurs VM
 
-- **Recette et production** : clonez la VM dans Proxmox, puis donnez au clone son nom Tailscale (`conformite-recette`) et **ses propres secrets** (`sudo rm /etc/credstore.encrypted/conformite.*` puis `sudo ops/secrets.sh systemd-creds`, sur une base vide).
-- **Base séparée** : une VM PostgreSQL sur le pont privé ou le tailnet ; changez `DATABASE_URL` et `DATABASE_ADMIN_URL` dans `docker-compose.yml`.
-- **Plusieurs API derrière un répartiteur** : l'API est sans état (sessions en base, écritures sérialisées par un verrou PostgreSQL). Seules les preuves sont sur disque local : il faudra les déplacer vers un stockage objet compatible S3 (MinIO dans une VM, par exemple).
+- **Recette et production** : créez une seconde VM (ou une VM à partir d'un snapshot), puis donnez-lui son nom Tailscale (`conformite-recette`) et **ses propres secrets** (`sudo rm /etc/credstore.encrypted/conformite.*` puis `sudo ops/secrets.sh systemd-creds`, sur une base vide).
+- **Base séparée** : une VM PostgreSQL sur le réseau privé Hetzner ou le tailnet ; changez `DATABASE_URL` et `DATABASE_ADMIN_URL` dans `docker-compose.yml`.
+- **Plusieurs API derrière un répartiteur** : l'API est sans état (sessions en base, écritures sérialisées par un verrou PostgreSQL). Seules les preuves sont sur disque local : il faudra les déplacer vers un stockage objet compatible S3 (Hetzner Object Storage, par exemple).
 - **Supervision** : envoyez les journaux (`journalctl`, Docker) vers votre SIEM (un agent Wazuh dans chaque VM, par exemple) et surveillez `/api/health`.
 
 ## Sécurité en place

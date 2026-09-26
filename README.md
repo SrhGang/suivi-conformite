@@ -42,7 +42,7 @@ cd .. && npm run dev:api        # le proxy Vite redirige /api vers :3000
 cd server && TEST_DATABASE_ADMIN_URL=… TEST_DATABASE_URL=… npm test
 ```
 
-Déploiement sur une VM (Proxmox, Tailscale, secrets chiffrés avec systemd-creds, Docker Compose, sauvegardes, choix de l'hébergeur) : voir **[docs/deploiement.md](docs/deploiement.md)**. La CI GitHub Actions (`.github/workflows/ci.yml`) vérifie les types, lance les tests front et serveur (avec PostgreSQL) et construit les images Docker.
+Déploiement sur une VM (Tailscale, secrets chiffrés avec systemd-creds, Docker Compose, sauvegardes, choix de l'hébergeur) : voir **[docs/deploiement.md](docs/deploiement.md)**. La CI GitHub Actions (`.github/workflows/ci.yml`) vérifie les types, lance les tests front et serveur (avec PostgreSQL) et construit les images Docker.
 
 ## Pages
 
