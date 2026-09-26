@@ -5,8 +5,8 @@
 #       Fichiers dans ./secrets (répertoire 0700). Simple, mais les secrets sont en clair sur le disque.
 #
 #   sudo ops/secrets.sh systemd-creds
-#       Secrets chiffrés avec systemd-creds dans /etc/credstore.encrypted (clé de la machine
-#       et TPM2 si la VM en a un). Ils ne sont déchiffrés qu'en mémoire (/run/conformite) par
+#       Secrets chiffrés avec systemd-creds dans /etc/credstore.encrypted (clé de la machine,
+#       plus le TPM2 si la VM en a un). Ils ne sont déchiffrés qu'en mémoire (/run/conformite) par
 #       le service ops/systemd/conformite.service. Reprend ./secrets s'il existe, puis l'efface.
 #
 #   sudo ops/secrets.sh show NOM
