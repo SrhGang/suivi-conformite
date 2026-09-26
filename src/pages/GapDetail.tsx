@@ -73,11 +73,11 @@ export default function GapDetail() {
   const blockers = validationBlockers(gap, state.evidence, currentUser)
   const counts: Partial<Record<TabId, number>> = { remediations: remediations.length, preuves: evidence.length, historique: history.length }
 
-  const requestStatus = (status: GapStatusId) => {
+  const requestStatus = async (status: GapStatusId) => {
     if (status === gap.status) return
     if (status === 'validee' || gap.status === 'validee') setStatusDialog(status)
     else {
-      const r = changeGapStatus(gap.id, status)
+      const r = await changeGapStatus(gap.id, status)
       !r.ok ? notify(r.error, 'error') : notify('Statut mis à jour.')
     }
   }
@@ -202,8 +202,8 @@ export default function GapDetail() {
             <button
               className="btn btn--secondary"
               disabled={!can('edit')}
-              onClick={() => {
-                const r = duplicateGap(gap.id)
+              onClick={async () => {
+                const r = await duplicateGap(gap.id)
                 if (!r.ok) notify(r.error, 'error')
                 else {
                   notify(`Copie créée : ${r.result.id}`)
@@ -214,7 +214,7 @@ export default function GapDetail() {
               Dupliquer
             </button>
             {gap.archived ? (
-              <button className="btn btn--secondary" disabled={!can('archive')} onClick={() => { const r = restoreGap(gap.id); !r.ok ? notify(r.error, 'error') : notify('Lacune restaurée.') }}>
+              <button className="btn btn--secondary" disabled={!can('archive')} onClick={async () => { const r = await restoreGap(gap.id); !r.ok ? notify(r.error, 'error') : notify('Lacune restaurée.') }}>
                 Restaurer
               </button>
             ) : (
@@ -236,8 +236,8 @@ export default function GapDetail() {
           withComment
           commentLabel="Motif de l'archivage"
           onClose={() => setArchiving(false)}
-          onConfirm={(reason) => {
-            const r = archiveGap(gap.id, reason)
+          onConfirm={async (reason) => {
+            const r = await archiveGap(gap.id, reason)
             !r.ok ? notify(r.error, 'error') : notify('Lacune archivée.')
             setArchiving(false)
           }}
@@ -260,8 +260,8 @@ export default function GapDetail() {
           withComment
           commentLabel={statusDialog === 'validee' ? 'Commentaire de validation' : 'Motif de la réouverture'}
           onClose={() => setStatusDialog(null)}
-          onConfirm={(comment) => {
-            const r = changeGapStatus(gap.id, statusDialog, comment)
+          onConfirm={async (comment) => {
+            const r = await changeGapStatus(gap.id, statusDialog, comment)
             !r.ok ? notify(r.error, 'error') : notify(statusDialog === 'validee' ? 'Lacune validée.' : 'Lacune rouverte.')
             setStatusDialog(null)
           }}
@@ -325,8 +325,8 @@ function RemediationsTab({ gap, remediations, editable }: { gap: Gap; remediatio
   const [deleting, setDeleting] = useState<Remediation | null>(null)
   const avg = averageProgress(remediations)
 
-  const quickUpdate = (r: Remediation, changes: Partial<RemediationInput>) => {
-    const res = updateRemediation(r.id, changes)
+  const quickUpdate = async (r: Remediation, changes: Partial<RemediationInput>) => {
+    const res = await updateRemediation(r.id, changes)
     if (!res.ok) notify(res.error, 'error')
   }
 
@@ -421,8 +421,8 @@ function RemediationsTab({ gap, remediations, editable }: { gap: Gap; remediatio
           confirmLabel="Supprimer"
           tone="accent"
           onClose={() => setDeleting(null)}
-          onConfirm={() => {
-            const r = deleteRemediation(deleting.id)
+          onConfirm={async () => {
+            const r = await deleteRemediation(deleting.id)
             !r.ok ? notify(r.error, 'error') : notify('Remédiation supprimée.')
             setDeleting(null)
           }}
@@ -523,8 +523,8 @@ function ProofTab({ gap, blockers, onValidate }: { gap: Gap; blockers: string[];
         <ReviewDialog
           gap={gap}
           onClose={() => setReviewing(false)}
-          onSubmit={(outcome, comment) => {
-            const r = performReview(gap.id, outcome, comment)
+          onSubmit={async (outcome, comment) => {
+            const r = await performReview(gap.id, outcome, comment)
             !r.ok ? notify(r.error, 'error') : notify(outcome === 'conforme' ? 'Revue enregistrée : toujours conforme.' : 'Lacune rouverte suite à la revue.', outcome === 'conforme' ? 'success' : 'warning')
             setReviewing(false)
           }}

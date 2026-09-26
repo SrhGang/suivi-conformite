@@ -35,17 +35,21 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
     description: remediation?.description ?? '',
   }))
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [saving, setSaving] = useState(false)
   const set = <K extends keyof RemediationFormState>(k: K, v: RemediationFormState[K]) => setForm((f) => ({ ...f, [k]: v }))
   const openGaps = state.gaps.filter((g) => !g.archived && g.status !== 'validee')
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!form.gapId) {
       setErrors({ gapId: 'Choisissez la lacune concernée.' })
       return
     }
     const { gapId: targetGap, ...payload } = { ...form, progress: Number(form.progress) }
-    const res = remediation ? updateRemediation(remediation.id, payload) : addRemediation(targetGap, payload)
+    if (saving) return
+    setSaving(true)
+    const res = remediation ? await updateRemediation(remediation.id, payload) : await addRemediation(targetGap, payload)
+    setSaving(false)
     if (!res.ok) {
       setErrors(res.errors ?? {})
       notify(res.error, 'error')
@@ -141,7 +145,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
             {readOnly ? 'Fermer' : 'Annuler'}
           </button>
           {!readOnly && (
-            <button type="submit" className="btn btn--primary">
+            <button type="submit" className="btn btn--primary" disabled={saving}>
               {editing ? 'Enregistrer' : 'Ajouter'}
             </button>
           )}

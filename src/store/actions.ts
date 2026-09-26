@@ -354,7 +354,7 @@ export function addEvidence(state: ComplianceState, user: User, gapId: string, i
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’ajouter une preuve.')
   if (!state.gaps.some((g) => g.id === gapId)) return deny('Lacune introuvable.')
   if (!input.name?.trim()) return deny('Le nom de la preuve est obligatoire.')
-  if (!input.dataUrl && !input.url && !input.size) return deny('Joignez un fichier ou indiquez un lien.')
+  if (!input.dataUrl && !input.url && !input.size && !input.fileKey) return deny('Joignez un fichier ou indiquez un lien.')
   const [id, counters] = nextId(state, 'evidence', 'PRV')
   const ev: Evidence = {
     id,
@@ -364,6 +364,7 @@ export function addEvidence(state: ComplianceState, user: User, gapId: string, i
     size: input.size ?? null,
     url: input.url?.trim() || null,
     dataUrl: input.dataUrl ?? null,
+    ...(input.fileKey ? { fileKey: input.fileKey } : {}),
     uploadedAt: now(),
     uploadedBy: user.id,
   }

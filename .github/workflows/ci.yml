@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:api
+      - run: npm run build:artifact
+
+  server:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: conformite_test
+          POSTGRES_USER: conformite_owner
+          POSTGRES_PASSWORD: owner-test-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U conformite_owner -d conformite_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: owner-test-password
+      TEST_DATABASE_ADMIN_URL: postgres://conformite_owner:owner-test-password@localhost:5432/conformite_test
+      TEST_DATABASE_URL: postgres://conformite_app:app-test-password@localhost:5432/conformite_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - name: Rôle applicatif restreint
+        run: |
+          psql -h localhost -U conformite_owner -d conformite_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE conformite_app LOGIN PASSWORD 'app-test-password';" \
+            -c "GRANT CONNECT ON DATABASE conformite_test TO conformite_app;"
+      - run: npm ci
+      - run: npm ci
+        working-directory: server
+      - run: npm run typecheck
+        working-directory: server
+      - run: npm test
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [frontend, server]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target api -t conformite-api:ci .
+      - run: docker build --target web -t conformite-web:ci .

@@ -6,6 +6,7 @@ import GapDetail from './pages/GapDetail'
 import GapsInventory from './pages/GapsInventory'
 import Referentiel from './pages/Referentiel'
 import Roadmap from './pages/Roadmap'
+import Users from './pages/Users'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="lacunes/:id" element={<GapDetail />} />
         <Route path="roadmap" element={<Roadmap />} />
         <Route path="referentiel" element={<Referentiel />} />
+        <Route path="utilisateurs" element={<Users />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

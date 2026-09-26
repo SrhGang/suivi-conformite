@@ -127,6 +127,8 @@ export interface Evidence {
   size: number | null
   url: string | null
   dataUrl: string | null
+  /** Fichier stocké par le serveur (version production), téléchargeable via l'API. */
+  fileKey?: string | null
   uploadedAt: ISODateTime
   uploadedBy: string
   demo?: boolean
@@ -200,6 +202,7 @@ export interface EvidenceInput {
   size?: number | null
   url?: string | null
   dataUrl?: string | null
+  fileKey?: string | null
 }
 
 export type FieldErrors = Partial<Record<string, string>>

@@ -2292,3 +2292,103 @@ details.help ul {
   font-size: var(--font-size-small);
   width: auto;
 }
+
+/* ------------------------------------------------------------------ */
+/* Connexion (version production)                                      */
+/* ------------------------------------------------------------------ */
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh var(--space-base) var(--space-2xl);
+  background: var(--page-bg);
+}
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-2xl) var(--space-xl);
+}
+.auth-brand {
+  font-weight: var(--font-weight-bold);
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--text-title);
+}
+.auth-sub {
+  color: var(--text-subdued);
+  font-size: var(--font-size-small);
+  margin: 2px 0 var(--space-xl);
+}
+.auth-title {
+  font-size: var(--font-size-h2);
+  margin-bottom: var(--space-base);
+}
+.auth-submit {
+  width: 100%;
+  margin-top: var(--space-sm);
+}
+.auth-code {
+  font-family: var(--font-family-mono);
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.auth-steps {
+  padding-left: var(--space-lg);
+  margin: 0 0 var(--space-base);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.auth-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-base);
+}
+.auth-qr img {
+  background: #ffffff;
+  padding: 6px;
+  border-radius: var(--radius-md);
+}
+.auth-qr code {
+  word-break: break-all;
+  text-align: center;
+  color: var(--text-subdued);
+}
+
+/* Menu utilisateur (version production) */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+.user-menu__who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  text-align: right;
+}
+.user-menu__who strong {
+  font-size: var(--font-size-small);
+  color: var(--text-title);
+  font-weight: var(--font-weight-semibold);
+}
+.user-menu__who span {
+  font-size: var(--font-size-tiny);
+  color: var(--text-subdued);
+}
+@media (max-width: 860px) {
+  .user-menu__who {
+    display: none;
+  }
+}
