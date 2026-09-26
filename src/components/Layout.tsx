@@ -6,6 +6,7 @@ import { useComplianceShell } from '../store/ComplianceContext'
 import { activeGaps, isOpen } from '../utils/compliance'
 import { formatDateTime } from '../utils/dates'
 import { exportBackup, exportCsv, exportReport } from '../utils/report'
+import { useColorMode } from '../theme'
 import ExportDialog from './ExportDialog'
 import Icon, { type IconName } from './Icon'
 import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui'
@@ -63,7 +64,18 @@ export default function Layout() {
   const [confirmReset, setConfirmReset] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const [colorMode, toggleColorMode] = useColorMode()
+
   useEffect(() => setFlyout(false), [pathname, search])
+
+  // Retour en haut de page à chaque changement de page (sans bloquer le rendu).
+  useEffect(() => {
+    try {
+      document.scrollingElement?.scrollTo({ top: 0 })
+    } catch {
+      /* défilement non disponible */
+    }
+  }, [pathname])
 
   const toggleNav = () => {
     if (window.matchMedia('(max-width: 1099px)').matches) setFlyout((o) => !o)
@@ -149,11 +161,8 @@ export default function Layout() {
           <Icon name="menu" size={18} />
         </button>
         <Link to="/" className="brand" aria-label="Accueil — Conformité ISO 27001">
-          <span className="brand__mark">
-            <Icon name="shield" size={18} />
-          </span>
           <span className="brand__title">
-            conformité<span className="brand__dot">.</span>
+            Conformité<span className="brand__dot">.</span>
           </span>
         </Link>
         <nav className="breadcrumbs" aria-label="Fil d’Ariane">
@@ -163,6 +172,14 @@ export default function Layout() {
             </span>
           ))}
         </nav>
+        <button
+          className="icon-btn"
+          onClick={toggleColorMode}
+          aria-label={colorMode === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre'}
+          title={colorMode === 'dark' ? 'Thème clair' : 'Thème sombre'}
+        >
+          <Icon name={colorMode === 'dark' ? 'sun' : 'moon'} size={18} />
+        </button>
         {state && currentUser && (
           <div className="user-switch">
             <label className="sr-only" htmlFor="user-select">

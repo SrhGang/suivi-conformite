@@ -2,7 +2,7 @@
 
 La v2 du design system reprend les codes visuels du tableau de bord Wazuh 4.8 et suivants. Ce tableau de bord est basé sur OpenSearch Dashboards et utilise le thème clair de la bibliothèque de composants OUI (dérivée d'EUI). Les jetons sont définis dans `src/styles/design-system.css`, et les composants dans `src/styles/app.css`.
 
-L'application reprend le style de Wazuh, mais **ni son nom ni son logo**. Elle garde sa propre identité (marque « conformité. »).
+L'application reprend le style de Wazuh, mais **ni son nom ni son logo**. Elle garde sa propre identité : la marque textuelle « Conformité. ».
 
 ## Principes repris de Wazuh
 
@@ -36,6 +36,13 @@ L'application reprend le style de Wazuh, mais **ni son nom ni son logo**. Elle g
 
 Les noms de variables de la v1 (`--primary-*`, `--accent*`, `--neutral-*`, `--space-*`) sont conservés et pointent vers les nouvelles valeurs. L'accent rouge de la v1 devient le bleu d'action, parce que dans Wazuh le rouge est réservé au danger.
 
-## Hors périmètre
+## Thème sombre
 
-Wazuh propose aussi un thème sombre. Il n'est pas repris ici, car le mode sombre est exclu du MVP.
+Comme le réglage « Dark mode » de Wazuh, l'application propose un thème sombre qui reprend la palette sombre de la bibliothèque OUI :
+- fond de page `#141519` et panneaux `#1D1E24` ;
+- texte `#DFE5EF`, bordures `#343741` ;
+- bleu d'action `#1BA9F5`, succès `#7DE2D1`, danger `#FF6666`, avertissement `#FFCE7A`.
+
+Le bouton soleil/lune de l'en-tête bascule entre les deux thèmes, et le choix reste mémorisé dans le navigateur. Sans choix enregistré, l'application suit le thème du système, ou celui de la page hôte pour la version en ligne.
+
+Côté technique, le thème s'applique avec l'attribut `data-color-mode="dark"` sur `<html>`. Le bloc `:root[data-color-mode='dark']` de `design-system.css` redéfinit uniquement les jetons, et les composants n'utilisent aucune couleur en dur. Le rapport exporté reste en clair, car c'est un document destiné à être imprimé.

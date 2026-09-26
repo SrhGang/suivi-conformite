@@ -65,4 +65,4 @@ docs/design-system.md   design system v2 inspiré du tableau de bord Wazuh
 - Il n'y a ni back-end ni authentification réelle. En production, il faudra une API, une base de données, une authentification (SSO avec MFA), le chiffrement et un contrôle d'accès côté serveur, car l'outil contient la liste des failles de l'organisme.
 - Les preuves de plus de 1 Mo ne sont conservées qu'en métadonnées.
 - La correspondance ISO 27001 ↔ NIS2 et les références ANSSI sont **indicatives**. Elles doivent être revues au regard du référentiel publié par l'ANSSI pour la transposition française.
-- Le mode sombre n'est pas pris en charge : il est hors périmètre.
+- Le thème sombre (bouton soleil/lune de l'en-tête) reprend la palette sombre de Wazuh ; le rapport exporté reste en clair.

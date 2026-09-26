@@ -1,5 +1,4 @@
-import { useEffect } from 'react'
-import { Link, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { EmptyState } from './components/ui'
 import Dashboard from './pages/Dashboard'
@@ -8,16 +7,8 @@ import GapsInventory from './pages/GapsInventory'
 import Referentiel from './pages/Referentiel'
 import Roadmap from './pages/Roadmap'
 
-function ScrollToTop() {
-  const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
-  return null
-}
-
 export default function App() {
   return (
-    <>
-    <ScrollToTop />
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
@@ -28,7 +19,6 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
-    </>
   )
 }
 

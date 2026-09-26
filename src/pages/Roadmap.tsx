@@ -293,7 +293,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: Gantt
         <div className="gantt__grid">
           <div className="gantt__row gantt__header">
             <div className="gantt__label">
-              <button onClick={onSort} style={{ color: 'white' }} aria-label="Trier par date cible">
+              <button onClick={onSort} aria-label="Trier par date cible">
                 Remédiation · date cible {sortDir === 'asc' ? '▲' : '▼'}
               </button>
             </div>
@@ -405,7 +405,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: Gantt
           <div>
             {REMEDIATION_STATUS_BY_ID[tip.r.status].label} · Lacune {tip.r.gapId} ({CRITICALITY_BY_ID[gapIndex[tip.r.gapId].criticality].label})
           </div>
-          {isRemediationOverdue(tip.r) && <div style={{ color: '#F5B7B1' }}>En retard de {-diffDays(tip.r.targetDate, today())} j</div>}
+          {isRemediationOverdue(tip.r) && <div className="gantt__tooltip-late">En retard de {-diffDays(tip.r.targetDate, today())} j</div>}
         </div>
       )}
     </div>
