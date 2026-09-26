@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import ExportButton from '../components/ExportButton.jsx'
-import GapForm from '../components/GapForm.jsx'
-import { ConfirmDialog, CriticalityBadge, EmptyState, LateBadge, Menu, Progress, StatusBadge, UserName } from '../components/ui.jsx'
-import { CRITICALITIES, CRITICALITY_BY_ID, GAP_STATUSES, PAGE_SIZE } from '../data/constants.js'
-import { THEMES, getControl, getTheme } from '../data/isoControls.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { gapProgress, isGapOverdue, isReviewDue, themeOfGap, weightedScore } from '../utils/compliance.js'
-import { formatDate, relativeDue } from '../utils/dates.js'
-import { exportCsv, exportReport } from '../utils/report.js'
+import ExportButton from '../components/ExportButton'
+import GapForm from '../components/GapForm'
+import { ConfirmDialog, CriticalityBadge, EmptyState, LateBadge, Menu, Progress, StatusBadge, UserName } from '../components/ui'
+import { CRITICALITIES, CRITICALITY_BY_ID, GAP_STATUSES, PAGE_SIZE } from '../data/constants'
+import { THEMES, getControl, getTheme } from '../data/isoControls'
+import { useCompliance } from '../store/ComplianceContext'
+import { gapProgress, isGapOverdue, isReviewDue, themeOfGap, weightedScore } from '../utils/compliance'
+import { formatDate, relativeDue } from '../utils/dates'
+import { exportCsv, exportReport } from '../utils/report'
+import { applyParamChanges, type ParamChanges } from '../utils/searchParams'
+import type { ApiResult, Gap, GapStatusId, Nis2Id } from '../types'
 
-const STATUS_ORDER = Object.fromEntries(GAP_STATUSES.map((s, i) => [s.id, i]))
-const COLUMNS = [
+type SortKey = 'id' | 'title' | 'theme' | 'criticality' | 'status' | 'progress' | 'dueDate' | 'assignee' | 'createdAt'
+const SORT_KEYS: SortKey[] = ['id', 'title', 'theme', 'criticality', 'status', 'progress', 'dueDate', 'assignee', 'createdAt']
+
+const STATUS_ORDER = Object.fromEntries(GAP_STATUSES.map((s, i) => [s.id, i])) as Record<GapStatusId, number>
+const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'id', label: 'ID' },
   { key: 'title', label: 'Titre' },
   { key: 'theme', label: 'Thème' },
@@ -23,7 +28,7 @@ const COLUMNS = [
   { key: 'createdAt', label: 'Créée le' },
 ]
 
-const normalize = (s) =>
+const normalize = (s: unknown): string =>
   String(s ?? '')
     .toLowerCase()
     .normalize('NFD')
@@ -34,7 +39,7 @@ export default function GapsInventory() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
-  const [confirm, setConfirm] = useState(null)
+  const [confirm, setConfirm] = useState<Gap | null>(null)
   const [search, setSearch] = useState(params.get('q') ?? '')
 
   const q = params.get('q') ?? ''
@@ -44,13 +49,13 @@ export default function GapsInventory() {
   const nis2 = params.get('nis2') ?? ''
   const retard = params.get('retard') === '1'
   const archives = params.get('archives') === '1'
-  const sort = params.get('tri') ?? 'criticality'
+  const sortParam = params.get('tri')
+  const sort: SortKey = SORT_KEYS.includes(sortParam as SortKey) ? (sortParam as SortKey) : 'criticality'
   const order = params.get('ordre') ?? (sort === 'criticality' ? 'desc' : 'asc')
   const page = Math.max(1, Number(params.get('page') ?? 1))
 
-  const update = (changes, resetPage = true) => {
-    const next = new URLSearchParams(params)
-    Object.entries(changes).forEach(([k, v]) => (v === '' || v == null || v === false ? next.delete(k) : next.set(k, v === true ? '1' : v)))
+  const update = (changes: ParamChanges, resetPage = true) => {
+    const next = applyParamChanges(params, changes)
     if (resetPage) next.delete('page')
     setParams(next, { replace: true })
   }
@@ -70,7 +75,7 @@ export default function GapsInventory() {
       if (criticite && g.criticality !== criticite) return false
       if (theme && themeOfGap(g) !== theme) return false
       if (statut === 'ouvertes' ? g.status === 'validee' : statut && g.status !== statut) return false
-      if (nis2 && !g.nis2Refs.includes(nis2)) return false
+      if (nis2 && !g.nis2Refs.includes(nis2 as Nis2Id)) return false
       if (retard && !isGapOverdue(g)) return false
       if (nq) {
         const hay = normalize(
@@ -83,7 +88,7 @@ export default function GapsInventory() {
   }, [state.gaps, q, criticite, theme, statut, nis2, retard, archives])
 
   const sorted = useMemo(() => {
-    const val = (g) => {
+    const val = (g: Gap): string | number => {
       switch (sort) {
         case 'criticality':
           return CRITICALITY_BY_ID[g.criticality].weight
@@ -96,14 +101,14 @@ export default function GapsInventory() {
         case 'assignee':
           return state.users.find((u) => u.id === g.assignee)?.name ?? ''
         default:
-          return g[sort] ?? ''
+          return g[sort]
       }
     }
     const dir = order === 'desc' ? -1 : 1
     return [...filtered].sort((a, b) => {
       const va = val(a)
       const vb = val(b)
-      const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'fr', { numeric: true })
+      const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'fr', { numeric: true })
       return cmp * dir || a.id.localeCompare(b.id)
     })
   }, [filtered, sort, order, state.remediations, state.users])
@@ -115,12 +120,12 @@ export default function GapsInventory() {
   const counts = Object.fromEntries(CRITICALITIES.map((c) => [c.id, filtered.filter((g) => g.criticality === c.id).length]))
   const hasFilters = q || criticite || theme || statut || nis2 || retard
 
-  const toggleSort = (key) => {
+  const toggleSort = (key: SortKey) => {
     if (sort === key) update({ tri: key, ordre: order === 'asc' ? 'desc' : 'asc' }, false)
     else update({ tri: key, ordre: key === 'criticality' || key === 'progress' ? 'desc' : 'asc' }, false)
   }
 
-  const act = (res, msg) => (res.error ? notify(res.error, 'error') : notify(msg))
+  const act = <T,>(res: ApiResult<T>, msg: (result: T) => string) => (!res.ok ? notify(res.error, 'error') : notify(msg(res.result)))
 
   return (
     <div className="page">
@@ -220,7 +225,7 @@ export default function GapsInventory() {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {state.gaps.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon="list"
             title="Aucune lacune trouvée"
             action={
               can('edit') && (
@@ -231,7 +236,7 @@ export default function GapsInventory() {
             }
           />
         ) : rows.length === 0 ? (
-          <EmptyState icon="🔍" title="Aucune lacune ne correspond aux filtres">
+          <EmptyState icon="search" title="Aucune lacune ne correspond aux filtres">
             Modifiez la recherche ou réinitialisez les filtres.
           </EmptyState>
         ) : (
@@ -304,11 +309,11 @@ export default function GapsInventory() {
                                 disabled: !can('edit'),
                                 onClick: () => {
                                   const r = duplicateGap(g.id)
-                                  act(r, `Lacune dupliquée : ${r.result?.id}`)
+                                  act(r, (copy) => `Lacune dupliquée : ${copy.id}`)
                                 },
                               },
                               g.archived
-                                ? { icon: 'restore', label: 'Restaurer', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => act(restoreGap(g.id), `${g.id} restaurée.`) }
+                                ? { icon: 'restore', label: 'Restaurer', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => act(restoreGap(g.id), () => `${g.id} restaurée.`) }
                                 : { icon: 'archive', label: 'Archiver', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => setConfirm(g) },
                             ]}
                           />
@@ -352,7 +357,7 @@ export default function GapsInventory() {
           commentLabel="Motif de l'archivage"
           onClose={() => setConfirm(null)}
           onConfirm={(reason) => {
-            act(archiveGap(confirm.id, reason), `${confirm.id} archivée.`)
+            act(archiveGap(confirm.id, reason), () => `${confirm.id} archivée.`)
             setConfirm(null)
           }}
         />

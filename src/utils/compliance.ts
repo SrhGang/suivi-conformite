@@ -1,6 +1,7 @@
-import { CRITICALITY_BY_ID, CRITICALITIES } from '../data/constants.js'
-import { ISO_CONTROLS, THEMES, themeOfControls } from '../data/isoControls.js'
-import { addMonths, diffDays, today } from './dates.js'
+import { CRITICALITIES, CRITICALITY_BY_ID } from '../data/constants'
+import { ISO_CONTROLS, THEMES, themeOfControls } from '../data/isoControls'
+import type { CriticalityId, Evidence, Gap, ISODate, Remediation, Theme, ThemeId, User } from '../types'
+import { addMonths, diffDays, today } from './dates'
 
 /**
  * Avancement d'une lacune (0-100) selon son statut :
@@ -15,14 +16,14 @@ export const GAP_PROGRESS_RULES = {
   en_cours_max: 75,
   corrigee: 80,
   validee: 100,
-}
+} as const
 
-export const averageProgress = (remediations) => {
+export const averageProgress = (remediations: Remediation[]): number => {
   if (!remediations.length) return 0
   return Math.round(remediations.reduce((s, r) => s + (r.progress ?? 0), 0) / remediations.length)
 }
 
-export const gapProgress = (gap, remediations = []) => {
+export const gapProgress = (gap: Gap, remediations: Remediation[] = []): number => {
   switch (gap.status) {
     case 'validee':
       return GAP_PROGRESS_RULES.validee
@@ -38,14 +39,14 @@ export const gapProgress = (gap, remediations = []) => {
   }
 }
 
-export const activeGaps = (gaps) => gaps.filter((g) => !g.archived)
-export const isOpen = (gap) => gap.status !== 'validee'
+export const activeGaps = (gaps: Gap[]): Gap[] => gaps.filter((g) => !g.archived)
+export const isOpen = (gap: Gap): boolean => gap.status !== 'validee'
 
 /**
  * Score pondéré par criticité : Σ(poids × avancement) / Σ(poids).
  * Critique ×4, Haute ×3, Moyenne ×2, Basse ×1. 100 % si aucune lacune.
  */
-export const weightedScore = (gaps, remediations) => {
+export const weightedScore = (gaps: Gap[], remediations: Remediation[]): number => {
   const list = activeGaps(gaps)
   if (!list.length) return 100
   let num = 0
@@ -58,9 +59,15 @@ export const weightedScore = (gaps, remediations) => {
   return Math.round(num / den)
 }
 
-export const themeOfGap = (gap) => themeOfControls(gap.controlIds)
+export const themeOfGap = (gap: Gap): ThemeId => themeOfControls(gap.controlIds)
 
-export const scoreByTheme = (gaps, remediations) =>
+export interface ThemeScore extends Theme {
+  score: number
+  total: number
+  open: number
+}
+
+export const scoreByTheme = (gaps: Gap[], remediations: Remediation[]): ThemeScore[] =>
   THEMES.map((t) => {
     const list = activeGaps(gaps).filter((g) => themeOfGap(g) === t.id)
     return {
@@ -72,7 +79,7 @@ export const scoreByTheme = (gaps, remediations) =>
   })
 
 /** Mesures ISO sans lacune ouverte (hypothèse de l'analyse d'écart). */
-export const conformControls = (gaps) => {
+export const conformControls = (gaps: Gap[]) => {
   const nonConform = new Set(activeGaps(gaps).filter(isOpen).flatMap((g) => g.controlIds))
   return {
     conform: ISO_CONTROLS.length - nonConform.size,
@@ -81,47 +88,60 @@ export const conformControls = (gaps) => {
   }
 }
 
-export const conformThemes = (gaps) => {
+export const conformThemes = (gaps: Gap[]) => {
   const byTheme = scoreByTheme(gaps, [])
   return { conform: byTheme.filter((t) => t.open === 0).length, total: THEMES.length }
 }
 
-export const isGapOverdue = (gap, ref = today()) =>
-  !gap.archived && isOpen(gap) && gap.dueDate && diffDays(gap.dueDate, ref) < 0
+export const isGapOverdue = (gap: Gap, ref: ISODate = today()): boolean =>
+  !gap.archived && isOpen(gap) && !!gap.dueDate && diffDays(gap.dueDate, ref) < 0
 
-export const isRemediationOverdue = (r, ref = today()) =>
-  r.status !== 'valide' && r.targetDate && diffDays(r.targetDate, ref) < 0
+export const isRemediationOverdue = (r: Remediation, ref: ISODate = today()): boolean =>
+  r.status !== 'valide' && !!r.targetDate && diffDays(r.targetDate, ref) < 0
 
-export const reviewIntervalMonths = (gap) => CRITICALITY_BY_ID[gap.criticality]?.reviewMonths ?? 12
+export const reviewIntervalMonths = (gap: Gap): number => CRITICALITY_BY_ID[gap.criticality]?.reviewMonths ?? 12
 
-export const nextReviewFrom = (gap, fromDate) => addMonths(fromDate, reviewIntervalMonths(gap))
+export const nextReviewFrom = (gap: Gap, fromDate: ISODate): ISODate => addMonths(fromDate, reviewIntervalMonths(gap))
 
 /** Revue périodique due (ou due dans `withinDays` jours) pour une lacune validée. */
-export const isReviewDue = (gap, ref = today(), withinDays = 0) =>
-  !gap.archived && gap.status === 'validee' && gap.nextReviewDate && diffDays(gap.nextReviewDate, ref) <= withinDays
+export const isReviewDue = (gap: Gap, ref: ISODate = today(), withinDays = 0): boolean =>
+  !gap.archived && gap.status === 'validee' && !!gap.nextReviewDate && diffDays(gap.nextReviewDate, ref) <= withinDays
 
-export const countByCriticality = (gaps) =>
-  Object.fromEntries(CRITICALITIES.map((c) => [c.id, gaps.filter((g) => g.criticality === c.id).length]))
+export const countByCriticality = (gaps: Gap[]): Record<CriticalityId, number> =>
+  Object.fromEntries(CRITICALITIES.map((c) => [c.id, gaps.filter((g) => g.criticality === c.id).length])) as Record<
+    CriticalityId,
+    number
+  >
 
 /** Vérifie qu'une lacune peut passer à « Validée ». Retourne la liste des blocages. */
-export const validationBlockers = (gap, evidence, user) => {
-  const blockers = []
+export const validationBlockers = (gap: Gap, evidence: Evidence[], user: User | null | undefined): string[] => {
+  const blockers: string[] = []
   if (user?.role !== 'responsable') blockers.push('Seul un responsable validant peut valider une lacune.')
   if (!evidence.some((e) => e.gapId === gap.id)) blockers.push('Au moins une preuve de conformité doit être jointe.')
   return blockers
 }
 
+export type AlertKind = 'overdue' | 'critical' | 'review' | 'remediation'
+
+export interface PriorityAlert {
+  kind: AlertKind
+  gap: Gap
+  remediation?: Remediation
+  severity: number
+  message: string
+}
+
 /** Alertes prioritaires : lacunes critiques ouvertes, retards, revues dues. */
-export const priorityAlerts = (gaps, remediations, ref = today()) => {
-  const alerts = []
-  const rank = (g) => CRITICALITY_BY_ID[g.criticality]?.weight ?? 0
+export const priorityAlerts = (gaps: Gap[], remediations: Remediation[], ref: ISODate = today()): PriorityAlert[] => {
+  const alerts: PriorityAlert[] = []
+  const rank = (g: Gap) => CRITICALITY_BY_ID[g.criticality]?.weight ?? 0
   for (const g of activeGaps(gaps)) {
     if (isGapOverdue(g, ref)) {
       alerts.push({ kind: 'overdue', gap: g, severity: rank(g) + 10, message: `Échéance dépassée de ${-diffDays(g.dueDate, ref)} j` })
     } else if (isOpen(g) && g.criticality === 'critique') {
       alerts.push({ kind: 'critical', gap: g, severity: rank(g) + 5, message: 'Lacune critique non validée' })
     }
-    if (isReviewDue(g, ref, 14)) {
+    if (g.nextReviewDate && isReviewDue(g, ref, 14)) {
       const n = diffDays(g.nextReviewDate, ref)
       alerts.push({
         kind: 'review',

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import GapForm from '../components/GapForm.jsx'
-import ExportButton from '../components/ExportButton.jsx'
-import Icon from '../components/Icon.jsx'
-import { CriticalityDot, Donut, EmptyState, Progress, UserName } from '../components/ui.jsx'
-import { CRITICALITIES, CRITICALITY_BY_ID, GAP_STATUSES } from '../data/constants.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
+import GapForm from '../components/GapForm'
+import ExportButton from '../components/ExportButton'
+import Icon from '../components/Icon'
+import { CriticalityDot, Donut, EmptyState, Progress, UserName } from '../components/ui'
+import { CRITICALITIES, CRITICALITY_BY_ID, GAP_STATUSES } from '../data/constants'
+import { useCompliance } from '../store/ComplianceContext'
 import {
   activeGaps,
   conformControls,
@@ -15,13 +15,17 @@ import {
   priorityAlerts,
   scoreByTheme,
   weightedScore,
-} from '../utils/compliance.js'
-import { formatDate, formatDateTime } from '../utils/dates.js'
-import { IS_ARTIFACT } from '../platform.js'
-import { exportCsv, exportReport, printReport } from '../utils/report.js'
+} from '../utils/compliance'
+import { formatDate, formatDateTime } from '../utils/dates'
+import { IS_ARTIFACT } from '../platform'
+import { exportCsv, exportReport, printReport } from '../utils/report'
+import type { AlertKind } from '../utils/compliance'
+import type { ExportItem } from '../components/ExportButton'
+import type { IconName } from '../components/Icon'
+import type { CriticalityId, GapStatusId } from '../types'
 
-const CRIT_COLORS = { critique: 'var(--severity-critical)', haute: 'var(--severity-high)', moyenne: 'var(--severity-medium)', basse: 'var(--severity-low)' }
-const ALERT_ICON = { overdue: 'clock', critical: 'alert', review: 'cycle', remediation: 'edit' }
+const CRIT_COLORS: Record<CriticalityId, string> = { critique: 'var(--severity-critical)', haute: 'var(--severity-high)', moyenne: 'var(--severity-medium)', basse: 'var(--severity-low)' }
+const ALERT_ICON: Record<AlertKind, IconName> = { overdue: 'clock', critical: 'alert', review: 'cycle', remediation: 'edit' }
 
 export default function Dashboard() {
   const { state, can, notify } = useCompliance()
@@ -43,24 +47,26 @@ export default function Dashboard() {
       blocked: state.remediations.filter((r) => r.status === 'bloque').length,
       overdue: gaps.filter((g) => isGapOverdue(g)).length,
       byCrit: countByCriticality(open),
-      byStatus: Object.fromEntries(GAP_STATUSES.map((s) => [s.id, gaps.filter((g) => g.status === s.id).length])),
+      byStatus: Object.fromEntries(GAP_STATUSES.map((s) => [s.id, gaps.filter((g) => g.status === s.id).length])) as Record<GapStatusId, number>,
       activity: [...state.history].reverse().slice(0, 8),
     }
   }, [state])
 
   const nextMilestone = state.milestones.find((m) => m.date >= new Date().toISOString().slice(0, 10))
-  const exportItems = [
+  const exportItems: ExportItem[] = [
     { icon: 'report', label: 'Rapport HTML', onClick: () => exportReport(state) },
-    !IS_ARTIFACT && { icon: 'file', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') },
+    ...(IS_ARTIFACT
+      ? []
+      : [{ icon: 'file', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') } as ExportItem]),
     { icon: 'table', label: 'Export CSV des lacunes', onClick: () => exportCsv(state) },
-  ].filter(Boolean)
+  ]
 
   if (!data.gaps.length) {
     return (
       <div className="page">
         <div className="card">
           <EmptyState
-            icon="🛡️"
+            icon="shield"
             title="Commencez par créer un audit initial"
             action={
               can('edit') && (
@@ -202,7 +208,7 @@ export default function Dashboard() {
             <span className="badge badge--error">{data.alerts.length}</span>
           </div>
           {data.alerts.length === 0 ? (
-            <EmptyState icon="✅" title="Aucune alerte">
+            <EmptyState icon="check" title="Aucune alerte">
               Pas de retard ni de revue en attente.
             </EmptyState>
           ) : (

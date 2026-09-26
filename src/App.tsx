@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
-import Layout from './components/Layout.jsx'
-import { EmptyState } from './components/ui.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import GapDetail from './pages/GapDetail.jsx'
-import GapsInventory from './pages/GapsInventory.jsx'
-import Referentiel from './pages/Referentiel.jsx'
-import Roadmap from './pages/Roadmap.jsx'
+import Layout from './components/Layout'
+import { EmptyState } from './components/ui'
+import Dashboard from './pages/Dashboard'
+import GapDetail from './pages/GapDetail'
+import GapsInventory from './pages/GapsInventory'
+import Referentiel from './pages/Referentiel'
+import Roadmap from './pages/Roadmap'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -36,7 +36,7 @@ function NotFound() {
   return (
     <div className="page">
       <div className="card">
-        <EmptyState icon="🧭" title="Page introuvable" action={<Link className="btn btn--primary" to="/">Retour au tableau de bord</Link>} />
+        <EmptyState icon="home" title="Page introuvable" action={<Link className="btn btn--primary" to="/">Retour au tableau de bord</Link>} />
       </div>
     </div>
   )

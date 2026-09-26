@@ -6,15 +6,16 @@
  * ⚠️ La correspondance ISO ↔ NIS2 est indicative : elle doit être revue
  * par le responsable de la conformité avant tout usage officiel.
  */
+import type { IsoControl, Nis2Id, Nis2Requirement, Theme, ThemeId } from '../types'
 
-export const THEMES = [
+export const THEMES: Theme[] = [
   { id: 'org', code: 'A.5', label: 'Organisationnel', short: 'Org.' },
   { id: 'people', code: 'A.6', label: 'Humain', short: 'Hum.' },
   { id: 'physical', code: 'A.7', label: 'Physique', short: 'Phys.' },
   { id: 'tech', code: 'A.8', label: 'Technologique', short: 'Tech.' },
 ]
 
-export const NIS2_REQUIREMENTS = [
+export const NIS2_REQUIREMENTS: Nis2Requirement[] = [
   { id: '20', label: 'Art. 20 — Gouvernance', description: "Approbation et supervision des mesures de gestion des risques par les organes de direction ; formation des dirigeants." },
   { id: '21.2.a', label: 'Art. 21.2 a) — Analyse des risques', description: "Politiques relatives à l'analyse des risques et à la sécurité des systèmes d'information." },
   { id: '21.2.b', label: 'Art. 21.2 b) — Gestion des incidents', description: 'Gestion des incidents.' },
@@ -30,7 +31,7 @@ export const NIS2_REQUIREMENTS = [
 ]
 
 // [id, titre, exigences NIS2 associées]
-const RAW = {
+const RAW: Record<ThemeId, [string, string, Nis2Id[]][]> = {
   org: [
     ['5.1', "Politiques de sécurité de l'information", ['20', '21.2.a']],
     ['5.2', "Fonctions et responsabilités liées à la sécurité de l'information", ['20', '21.2.a']],
@@ -134,28 +135,28 @@ const RAW = {
   ],
 }
 
-export const ISO_CONTROLS = Object.entries(RAW).flatMap(([theme, list]) =>
-  list.map(([id, title, nis2]) => ({ id, title, theme, nis2 })),
+export const ISO_CONTROLS: IsoControl[] = (Object.entries(RAW) as [ThemeId, [string, string, Nis2Id[]][]][]).flatMap(
+  ([theme, list]) => list.map(([id, title, nis2]) => ({ id, title, theme, nis2 })),
 )
 
-const CONTROL_INDEX = Object.fromEntries(ISO_CONTROLS.map((c) => [c.id, c]))
-const THEME_INDEX = Object.fromEntries(THEMES.map((t) => [t.id, t]))
-const NIS2_INDEX = Object.fromEntries(NIS2_REQUIREMENTS.map((n) => [n.id, n]))
+const CONTROL_INDEX = new Map(ISO_CONTROLS.map((c) => [c.id, c]))
+const THEME_INDEX = Object.fromEntries(THEMES.map((t) => [t.id, t])) as Record<ThemeId, Theme>
+const NIS2_INDEX = new Map(NIS2_REQUIREMENTS.map((n) => [n.id, n]))
 
-export const getControl = (id) => CONTROL_INDEX[id]
-export const getTheme = (id) => THEME_INDEX[id]
-export const getNis2 = (id) => NIS2_INDEX[id]
+export const getControl = (id: string): IsoControl | undefined => CONTROL_INDEX.get(id)
+export const getTheme = (id: ThemeId): Theme => THEME_INDEX[id]
+export const getNis2 = (id: string): Nis2Requirement | undefined => NIS2_INDEX.get(id as Nis2Id)
 
 /** Thème d'une lacune = thème de sa première mesure ISO. */
-export const themeOfControls = (controlIds = []) => getControl(controlIds[0])?.theme ?? 'org'
+export const themeOfControls = (controlIds: string[] = []): ThemeId => getControl(controlIds[0])?.theme ?? 'org'
 
 /** Exigences NIS2 suggérées pour une liste de mesures (union, ordonnée). */
-export const suggestNis2 = (controlIds = []) => {
+export const suggestNis2 = (controlIds: string[] = []): Nis2Id[] => {
   const set = new Set(controlIds.flatMap((id) => getControl(id)?.nis2 ?? []))
   return NIS2_REQUIREMENTS.map((n) => n.id).filter((id) => set.has(id))
 }
 
-export const controlLabel = (id) => {
+export const controlLabel = (id: string): string => {
   const c = getControl(id)
   return c ? `A.${c.id} — ${c.title}` : id
 }

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
-import { CRITICALITIES } from '../data/constants.js'
-import { ISO_CONTROLS, NIS2_REQUIREMENTS, THEMES, suggestNis2 } from '../data/isoControls.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { addDays, today } from '../utils/dates.js'
-import { Modal } from './ui.jsx'
+import { useMemo, useState, type FormEvent } from 'react'
+import { CRITICALITIES } from '../data/constants'
+import { ISO_CONTROLS, NIS2_REQUIREMENTS, THEMES, suggestNis2 } from '../data/isoControls'
+import { useCompliance } from '../store/ComplianceContext'
+import { addDays, today } from '../utils/dates'
+import type { CriticalityId, FieldErrors, Gap, GapInput, Nis2Id } from '../types'
+import { Modal } from './ui'
 
 const ANSSI_SUGGESTIONS = [
   "ANSSI — Guide d'hygiène informatique",
@@ -18,13 +19,22 @@ const ANSSI_SUGGESTIONS = [
   'ANSSI — Référentiel des mesures de sécurité NIS2',
 ]
 
-const DEFAULT_DELAY = { critique: 30, haute: 60, moyenne: 90, basse: 180 }
+/** Délai par défaut (jours) selon la criticité. */
+const DEFAULT_DELAY: Record<CriticalityId, number> = { critique: 30, haute: 60, moyenne: 90, basse: 180 }
+
+type GapFormState = Required<GapInput>
+
+interface GapFormProps {
+  gap?: Gap
+  onClose: () => void
+  onSaved?: (gap: Gap) => void
+}
 
 /** Création ou édition d'une lacune (modale). */
-export default function GapForm({ gap, onClose, onSaved }) {
+export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
   const { state, createGap, updateGap, notify } = useCompliance()
   const editing = !!gap
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState<GapFormState>(() => ({
     title: gap?.title ?? '',
     description: gap?.description ?? '',
     controlIds: gap?.controlIds ?? [],
@@ -37,22 +47,22 @@ export default function GapForm({ gap, onClose, onSaved }) {
   }))
   const [nis2Touched, setNis2Touched] = useState(editing)
   const [dueTouched, setDueTouched] = useState(editing)
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors] = useState<FieldErrors>({})
   const [filter, setFilter] = useState('')
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const set = <K extends keyof GapFormState>(k: K, v: GapFormState[K]) => setForm((f) => ({ ...f, [k]: v }))
 
-  const toggleControl = (id) => {
+  const toggleControl = (id: string) => {
     setForm((f) => {
       const controlIds = f.controlIds.includes(id) ? f.controlIds.filter((c) => c !== id) : [...f.controlIds, id]
       return { ...f, controlIds, nis2Refs: nis2Touched ? f.nis2Refs : suggestNis2(controlIds) }
     })
   }
-  const toggleNis2 = (id) => {
+  const toggleNis2 = (id: Nis2Id) => {
     setNis2Touched(true)
     setForm((f) => ({ ...f, nis2Refs: f.nis2Refs.includes(id) ? f.nis2Refs.filter((n) => n !== id) : [...f.nis2Refs, id] }))
   }
-  const setCriticality = (c) => {
+  const setCriticality = (c: CriticalityId) => {
     setForm((f) => ({ ...f, criticality: c, dueDate: dueTouched ? f.dueDate : addDays(today(), DEFAULT_DELAY[c]) }))
   }
 
@@ -66,10 +76,10 @@ export default function GapForm({ gap, onClose, onSaved }) {
     })).filter((t) => t.controls.length)
   }, [filter])
 
-  const submit = (e) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault()
     const res = editing ? updateGap(gap.id, form) : createGap(form)
-    if (res.error) {
+    if (!res.ok) {
       setErrors(res.errors ?? {})
       notify(res.error, 'error')
       return
@@ -160,7 +170,7 @@ export default function GapForm({ gap, onClose, onSaved }) {
         <div className="form-grid">
           <div className="field">
             <label htmlFor="gap-crit">Criticité *</label>
-            <select id="gap-crit" className="input" value={form.criticality} onChange={(e) => setCriticality(e.target.value)}>
+            <select id="gap-crit" className="input" value={form.criticality} onChange={(e) => setCriticality(e.target.value as CriticalityId)}>
               {CRITICALITIES.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label} (poids ×{c.weight})

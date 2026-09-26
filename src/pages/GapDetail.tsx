@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import EvidencePanel from '../components/EvidencePanel.jsx'
-import Icon from '../components/Icon.jsx'
-import GapForm from '../components/GapForm.jsx'
-import RemediationForm from '../components/RemediationForm.jsx'
+import EvidencePanel from '../components/EvidencePanel'
+import Icon from '../components/Icon'
+import GapForm from '../components/GapForm'
+import RemediationForm from '../components/RemediationForm'
 import {
   ConfirmDialog,
   CriticalityBadge,
@@ -15,10 +15,10 @@ import {
   RemTypeBadge,
   StatusBadge,
   UserName,
-} from '../components/ui.jsx'
-import { CRITICALITY_BY_ID, GAP_STATUSES, REMEDIATION_STATUSES } from '../data/constants.js'
-import { getControl, getNis2, getTheme } from '../data/isoControls.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
+} from '../components/ui'
+import { CRITICALITY_BY_ID, GAP_STATUSES, REMEDIATION_STATUSES } from '../data/constants'
+import { getControl, getNis2, getTheme } from '../data/isoControls'
+import { useCompliance } from '../store/ComplianceContext'
 import {
   averageProgress,
   gapProgress,
@@ -28,10 +28,13 @@ import {
   reviewIntervalMonths,
   themeOfGap,
   validationBlockers,
-} from '../utils/compliance.js'
-import { formatDate, formatDateTime, relativeDue } from '../utils/dates.js'
+} from '../utils/compliance'
+import { formatDate, formatDateTime, relativeDue } from '../utils/dates'
+import type { Gap, GapStatusId, HistoryEntry, Remediation, RemediationInput, RemediationStatusId, ReviewOutcome } from '../types'
 
-const TABS = [
+type TabId = 'details' | 'remediations' | 'preuves' | 'historique'
+
+const TABS: { id: TabId; label: string }[] = [
   { id: 'details', label: 'Détails' },
   { id: 'remediations', label: 'Remédiations' },
   { id: 'preuves', label: 'Preuves & validation' },
@@ -44,7 +47,7 @@ export default function GapDetail() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
-  const [statusDialog, setStatusDialog] = useState(null)
+  const [statusDialog, setStatusDialog] = useState<GapStatusId | null>(null)
   const [archiving, setArchiving] = useState(false)
 
   const gap = state.gaps.find((g) => g.id === id)
@@ -52,7 +55,7 @@ export default function GapDetail() {
     return (
       <div className="page">
         <div className="card">
-          <EmptyState icon="🔎" title="Lacune non trouvée" action={<Link className="btn btn--primary" to="/lacunes">← Retour à l'inventaire</Link>}>
+          <EmptyState icon="search" title="Lacune non trouvée" action={<Link className="btn btn--primary" to="/lacunes">← Retour à l'inventaire</Link>}>
             La lacune « {id} » n'existe pas ou a été supprimée.
           </EmptyState>
         </div>
@@ -60,22 +63,22 @@ export default function GapDetail() {
     )
   }
 
-  const tab = TABS.some((t) => t.id === params.get('onglet')) ? params.get('onglet') : 'details'
-  const setTab = (t) => setParams(t === 'details' ? {} : { onglet: t }, { replace: true })
+  const tab: TabId = TABS.find((t) => t.id === params.get('onglet'))?.id ?? 'details'
+  const setTab = (t: TabId) => setParams(t === 'details' ? {} : { onglet: t }, { replace: true })
   const remediations = state.remediations.filter((r) => r.gapId === gap.id)
   const evidence = state.evidence.filter((e) => e.gapId === gap.id)
   const history = state.history.filter((h) => h.gapId === gap.id)
   const late = isGapOverdue(gap)
   const editable = can('edit') && !gap.archived
   const blockers = validationBlockers(gap, state.evidence, currentUser)
-  const counts = { remediations: remediations.length, preuves: evidence.length, historique: history.length }
+  const counts: Partial<Record<TabId, number>> = { remediations: remediations.length, preuves: evidence.length, historique: history.length }
 
-  const requestStatus = (status) => {
+  const requestStatus = (status: GapStatusId) => {
     if (status === gap.status) return
     if (status === 'validee' || gap.status === 'validee') setStatusDialog(status)
     else {
       const r = changeGapStatus(gap.id, status)
-      r.error ? notify(r.error, 'error') : notify('Statut mis à jour.')
+      !r.ok ? notify(r.error, 'error') : notify('Statut mis à jour.')
     }
   }
 
@@ -133,7 +136,7 @@ export default function GapDetail() {
             <label htmlFor="status-select" className="sr-only">
               Statut de la lacune
             </label>
-            <select id="status-select" className="input" value={gap.status} disabled={!editable} onChange={(e) => requestStatus(e.target.value)}>
+            <select id="status-select" className="input" value={gap.status} disabled={!editable} onChange={(e) => requestStatus(e.target.value as GapStatusId)}>
               {GAP_STATUSES.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.id === 'validee' && blockers.length > 0}>
                   {s.label}
@@ -201,7 +204,7 @@ export default function GapDetail() {
               disabled={!can('edit')}
               onClick={() => {
                 const r = duplicateGap(gap.id)
-                if (r.error) notify(r.error, 'error')
+                if (!r.ok) notify(r.error, 'error')
                 else {
                   notify(`Copie créée : ${r.result.id}`)
                   navigate(`/lacunes/${r.result.id}`)
@@ -211,7 +214,7 @@ export default function GapDetail() {
               Dupliquer
             </button>
             {gap.archived ? (
-              <button className="btn btn--secondary" disabled={!can('archive')} onClick={() => { const r = restoreGap(gap.id); r.error ? notify(r.error, 'error') : notify('Lacune restaurée.') }}>
+              <button className="btn btn--secondary" disabled={!can('archive')} onClick={() => { const r = restoreGap(gap.id); !r.ok ? notify(r.error, 'error') : notify('Lacune restaurée.') }}>
                 Restaurer
               </button>
             ) : (
@@ -235,7 +238,7 @@ export default function GapDetail() {
           onClose={() => setArchiving(false)}
           onConfirm={(reason) => {
             const r = archiveGap(gap.id, reason)
-            r.error ? notify(r.error, 'error') : notify('Lacune archivée.')
+            !r.ok ? notify(r.error, 'error') : notify('Lacune archivée.')
             setArchiving(false)
           }}
         />
@@ -259,7 +262,7 @@ export default function GapDetail() {
           onClose={() => setStatusDialog(null)}
           onConfirm={(comment) => {
             const r = changeGapStatus(gap.id, statusDialog, comment)
-            r.error ? notify(r.error, 'error') : notify(statusDialog === 'validee' ? 'Lacune validée.' : 'Lacune rouverte.')
+            !r.ok ? notify(r.error, 'error') : notify(statusDialog === 'validee' ? 'Lacune validée.' : 'Lacune rouverte.')
             setStatusDialog(null)
           }}
         />
@@ -268,7 +271,7 @@ export default function GapDetail() {
   )
 }
 
-function DetailsTab({ gap }) {
+function DetailsTab({ gap }: { gap: Gap }) {
   return (
     <dl className="dl">
       <dt>Description</dt>
@@ -316,15 +319,15 @@ function DetailsTab({ gap }) {
   )
 }
 
-function RemediationsTab({ gap, remediations, editable }) {
+function RemediationsTab({ gap, remediations, editable }: { gap: Gap; remediations: Remediation[]; editable: boolean }) {
   const { updateRemediation, deleteRemediation, notify } = useCompliance()
-  const [form, setForm] = useState(null) // null | 'new' | remediation
-  const [deleting, setDeleting] = useState(null)
+  const [form, setForm] = useState<Remediation | 'new' | null>(null)
+  const [deleting, setDeleting] = useState<Remediation | null>(null)
   const avg = averageProgress(remediations)
 
-  const quickUpdate = (r, changes) => {
+  const quickUpdate = (r: Remediation, changes: Partial<RemediationInput>) => {
     const res = updateRemediation(r.id, changes)
-    if (res.error) notify(res.error, 'error')
+    if (!res.ok) notify(res.error, 'error')
   }
 
   return (
@@ -347,7 +350,7 @@ function RemediationsTab({ gap, remediations, editable }) {
       </div>
 
       {remediations.length === 0 ? (
-        <EmptyState icon="🛠️" title="Aucune remédiation planifiée">
+        <EmptyState icon="edit" title="Aucune remédiation planifiée">
           Ajoutez les actions qui permettront de corriger cette lacune ; elles apparaîtront dans la roadmap.
         </EmptyState>
       ) : (
@@ -374,7 +377,7 @@ function RemediationsTab({ gap, remediations, editable }) {
               <div className="rem-card__meta">
                 <RemTypeBadge value={r.type} />
                 {editable ? (
-                  <select className="input" style={{ width: 'auto', padding: '2px 8px' }} value={r.status} onChange={(e) => quickUpdate(r, { status: e.target.value })} aria-label={`Statut de ${r.id}`}>
+                  <select className="input" style={{ width: 'auto', padding: '2px 8px' }} value={r.status} onChange={(e) => quickUpdate(r, { status: e.target.value as RemediationStatusId })} aria-label={`Statut de ${r.id}`}>
                     {REMEDIATION_STATUSES.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.label}
@@ -420,7 +423,7 @@ function RemediationsTab({ gap, remediations, editable }) {
           onClose={() => setDeleting(null)}
           onConfirm={() => {
             const r = deleteRemediation(deleting.id)
-            r.error ? notify(r.error, 'error') : notify('Remédiation supprimée.')
+            !r.ok ? notify(r.error, 'error') : notify('Remédiation supprimée.')
             setDeleting(null)
           }}
         />
@@ -430,7 +433,7 @@ function RemediationsTab({ gap, remediations, editable }) {
 }
 
 /** Curseur d'avancement : n'enregistre (et n'historise) qu'au relâchement. */
-function ProgressSlider({ value, label, onCommit }) {
+function ProgressSlider({ value, label, onCommit }: { value: number; label: string; onCommit: (value: number) => void }) {
   const [local, setLocal] = useState(value)
   const [prev, setPrev] = useState(value)
   if (value !== prev) {
@@ -459,7 +462,7 @@ function ProgressSlider({ value, label, onCommit }) {
   )
 }
 
-function ProofTab({ gap, blockers, onValidate }) {
+function ProofTab({ gap, blockers, onValidate }: { gap: Gap; blockers: string[]; onValidate: () => void }) {
   const { can, performReview, notify } = useCompliance()
   const [reviewing, setReviewing] = useState(false)
   const reviewDue = isReviewDue(gap)
@@ -522,7 +525,7 @@ function ProofTab({ gap, blockers, onValidate }) {
           onClose={() => setReviewing(false)}
           onSubmit={(outcome, comment) => {
             const r = performReview(gap.id, outcome, comment)
-            r.error ? notify(r.error, 'error') : notify(outcome === 'conforme' ? 'Revue enregistrée : toujours conforme.' : 'Lacune rouverte suite à la revue.', outcome === 'conforme' ? 'success' : 'warning')
+            !r.ok ? notify(r.error, 'error') : notify(outcome === 'conforme' ? 'Revue enregistrée : toujours conforme.' : 'Lacune rouverte suite à la revue.', outcome === 'conforme' ? 'success' : 'warning')
             setReviewing(false)
           }}
         />
@@ -531,8 +534,14 @@ function ProofTab({ gap, blockers, onValidate }) {
   )
 }
 
-function ReviewDialog({ gap, onClose, onSubmit }) {
-  const [outcome, setOutcome] = useState('conforme')
+interface ReviewDialogProps {
+  gap: Gap
+  onClose: () => void
+  onSubmit: (outcome: ReviewOutcome, comment: string) => void
+}
+
+function ReviewDialog({ gap, onClose, onSubmit }: ReviewDialogProps) {
+  const [outcome, setOutcome] = useState<ReviewOutcome>('conforme')
   const [comment, setComment] = useState('')
   return (
     <Modal title={`Revue périodique — ${gap.id}`} onClose={onClose} size="sm">
@@ -563,11 +572,16 @@ function ReviewDialog({ gap, onClose, onSubmit }) {
   )
 }
 
-const actionClass = (a) =>
-  ({ Validation: 't-validation', Réouverture: 't-reopen', Archivage: 't-archive', 'Revue périodique': 't-review' })[a] ?? ''
+const ACTION_CLASS: Record<string, string> = {
+  Validation: 't-validation',
+  Réouverture: 't-reopen',
+  Archivage: 't-archive',
+  'Revue périodique': 't-review',
+}
+const actionClass = (a: string): string => ACTION_CLASS[a] ?? ''
 
-function HistoryTab({ history }) {
-  if (!history.length) return <EmptyState icon="🕓" title="Aucun historique" />
+function HistoryTab({ history }: { history: HistoryEntry[] }) {
+  if (!history.length) return <EmptyState icon="clock" title="Aucun historique" />
   return (
     <ul className="timeline">
       {[...history].reverse().map((h) => (

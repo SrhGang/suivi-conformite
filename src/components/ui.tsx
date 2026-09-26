@@ -1,29 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   CRITICALITY_BY_ID,
   GAP_STATUS_BY_ID,
   REMEDIATION_STATUS_BY_ID,
   REMEDIATION_TYPE_BY_ID,
-} from '../data/constants.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import Icon from './Icon.jsx'
+} from '../data/constants'
+import { useCompliance, useComplianceShell, type ToastTone } from '../store/ComplianceContext'
+import type { CriticalityId, GapStatusId, RemediationStatusId, RemediationTypeId, Tone, User } from '../types'
+import Icon, { type IconName } from './Icon'
 
-// Anciennes icônes emoji → glyphes linéaires.
-const ICON_ALIASES = { '📭': 'search', '🛡️': 'shield', '📋': 'list', '🔍': 'search', '🔎': 'search', '✅': 'check', '🛠️': 'edit', '🕓': 'clock', '🗓️': 'calendar', '🧭': 'home' }
-
-export function CriticalityBadge({ value }) {
+export function CriticalityBadge({ value }: { value: CriticalityId }) {
   const c = CRITICALITY_BY_ID[value]
   if (!c) return null
   return <span className={`badge badge--${c.tone}`}>{c.label}</span>
 }
 
-export function CriticalityDot({ value }) {
+export function CriticalityDot({ value }: { value: CriticalityId }) {
   const c = CRITICALITY_BY_ID[value]
   return <span className={`dot dot--${c?.tone}`} aria-hidden="true" />
 }
 
 /** Indicateur d'état « pastille + libellé » (EuiHealth), comme le statut des agents Wazuh. */
-export function Health({ tone, children }) {
+export function Health({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <span className={`health health--${tone}`}>
       <span className="health__dot" aria-hidden="true" />
@@ -32,29 +30,29 @@ export function Health({ tone, children }) {
   )
 }
 
-export function StatusBadge({ value }) {
+export function StatusBadge({ value }: { value: GapStatusId }) {
   const s = GAP_STATUS_BY_ID[value]
   if (!s) return null
   return <Health tone={s.tone}>{s.label}</Health>
 }
 
-export function RemStatusBadge({ value }) {
+export function RemStatusBadge({ value }: { value: RemediationStatusId }) {
   const s = REMEDIATION_STATUS_BY_ID[value]
   return s ? <Health tone={s.tone}>{s.label}</Health> : null
 }
 
-export function RemTypeBadge({ value }) {
+export function RemTypeBadge({ value }: { value: RemediationTypeId }) {
   const t = REMEDIATION_TYPE_BY_ID[value]
   return t ? (
     <span className="badge badge--outline">{t.label}</span>
   ) : null
 }
 
-export function LateBadge({ label = 'En retard' }) {
+export function LateBadge({ label = 'En retard' }: { label?: string }) {
   return <span className="badge badge--error">{label}</span>
 }
 
-export function Progress({ value, label = true, success }) {
+export function Progress({ value, label = true, success }: { value: number; label?: boolean; success?: boolean }) {
   const done = success ?? value >= 100
   return (
     <div className="progress-inline" title={`${value} %`}>
@@ -66,7 +64,7 @@ export function Progress({ value, label = true, success }) {
   )
 }
 
-export function Avatar({ user, size }) {
+export function Avatar({ user, size }: { user: User | null | undefined; size?: 'sm' }) {
   if (!user) return null
   return (
     <span className={`avatar ${size === 'sm' ? 'avatar--sm' : ''}`} title={`${user.name} — ${user.title}`}>
@@ -75,7 +73,7 @@ export function Avatar({ user, size }) {
   )
 }
 
-export function UserName({ id, withAvatar }) {
+export function UserName({ id, withAvatar }: { id: string; withAvatar?: boolean }) {
   const { state } = useCompliance()
   const u = state.users.find((x) => x.id === id)
   if (!u) return <span className="muted">—</span>
@@ -87,12 +85,19 @@ export function UserName({ id, withAvatar }) {
   )
 }
 
-export function Modal({ title, onClose, children, size }) {
-  const ref = useRef(null)
+interface ModalProps {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  size?: 'sm'
+}
+
+export function Modal({ title, onClose, children, size }: ModalProps) {
+  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    const first = ref.current?.querySelector('input, select, textarea, button:not(.modal__close)')
+    const first = ref.current?.querySelector<HTMLElement>('input, select, textarea, button:not(.modal__close)')
     first?.focus()
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -116,7 +121,27 @@ export function Modal({ title, onClose, children, size }) {
   )
 }
 
-export function ConfirmDialog({ title, message, confirmLabel = 'Confirmer', tone = 'primary', withComment, commentLabel, onConfirm, onClose }) {
+interface ConfirmDialogProps {
+  title: string
+  message: ReactNode
+  confirmLabel?: string
+  tone?: 'primary' | 'accent' | 'success' | 'danger'
+  withComment?: boolean
+  commentLabel?: string
+  onConfirm: (comment: string) => void
+  onClose: () => void
+}
+
+export function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = 'Confirmer',
+  tone = 'primary',
+  withComment,
+  commentLabel,
+  onConfirm,
+  onClose,
+}: ConfirmDialogProps) {
   const [comment, setComment] = useState('')
   return (
     <Modal title={title} onClose={onClose} size="sm">
@@ -141,13 +166,21 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Confirmer', tone
   )
 }
 
-export function Menu({ items, label = 'Actions' }) {
+export interface MenuItem {
+  icon?: IconName
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  title?: string
+}
+
+export function Menu({ items, label = 'Actions' }: { items: MenuItem[]; label?: string }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    const close = (e) => !ref.current?.contains(e.target) && setOpen(false)
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -182,11 +215,18 @@ export function Menu({ items, label = 'Actions' }) {
   )
 }
 
-export function EmptyState({ icon = 'search', title, children, action }) {
+interface EmptyStateProps {
+  icon?: IconName
+  title: string
+  children?: ReactNode
+  action?: ReactNode
+}
+
+export function EmptyState({ icon = 'search', title, children, action }: EmptyStateProps) {
   return (
     <div className="empty">
       <div className="empty__icon">
-        <Icon name={ICON_ALIASES[icon] ?? icon} size={32} />
+        <Icon name={icon} size={32} />
       </div>
       <h3>{title}</h3>
       {children && <p>{children}</p>}
@@ -195,13 +235,13 @@ export function EmptyState({ icon = 'search', title, children, action }) {
   )
 }
 
-export function Skeleton({ height = 16, width = '100%', style }) {
+export function Skeleton({ height = 16, width = '100%', style }: { height?: number; width?: number | string; style?: CSSProperties }) {
   return <div className="skeleton" style={{ height, width, ...style }} />
 }
 
 export function Toasts() {
-  const { toasts, dismissToast } = useCompliance()
-  const icon = { success: 'check', error: 'x', warning: 'alert', info: 'clock' }
+  const { toasts, dismissToast } = useComplianceShell()
+  const icon: Record<ToastTone, IconName> = { success: 'check', error: 'x', warning: 'alert', info: 'clock' }
   return (
     <div className="toasts" aria-live="polite">
       {toasts.map((t) => (
@@ -220,7 +260,7 @@ export function Toasts() {
 }
 
 /** Anneau de progression unique (une seule valeur : pas de légende nécessaire). */
-export function Donut({ value, size = 180, stroke = 18, label = 'conformité' }) {
+export function Donut({ value, size = 180, stroke = 18, label = 'conformité' }: { value: number; size?: number; stroke?: number; label?: string }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   // Seuils du score de conformité (mêmes zones que la jauge de score Wazuh).
@@ -249,8 +289,4 @@ export function Donut({ value, size = 180, stroke = 18, label = 'conformité' })
       </text>
     </svg>
   )
-}
-
-export function ReadOnlyHint() {
-  return <span className="small muted">Lecture seule</span>
 }

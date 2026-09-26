@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { ROLES } from '../data/constants.js'
-import { IS_ARTIFACT } from '../platform.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { activeGaps, isOpen } from '../utils/compliance.js'
-import { formatDateTime } from '../utils/dates.js'
-import { exportBackup, exportCsv, exportReport } from '../utils/report.js'
-import ExportDialog from './ExportDialog.jsx'
-import Icon from './Icon.jsx'
-import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui.jsx'
+import { ROLES } from '../data/constants'
+import { IS_ARTIFACT } from '../platform'
+import { useComplianceShell } from '../store/ComplianceContext'
+import { activeGaps, isOpen } from '../utils/compliance'
+import { formatDateTime } from '../utils/dates'
+import { exportBackup, exportCsv, exportReport } from '../utils/report'
+import ExportDialog from './ExportDialog'
+import Icon, { type IconName } from './Icon'
+import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui'
 
 const DOCK_KEY = 'suivi-conformite:nav-docked'
 const readDocked = () => {
@@ -19,11 +19,26 @@ const readDocked = () => {
   }
 }
 
+interface Crumb {
+  label: string
+  to?: string
+}
+
+type NavItem =
+  | { to: string; label: string; icon: IconName; count?: number }
+  | { label: string; icon: IconName; onClick: () => void; disabled?: boolean; title?: string }
+
+interface NavGroup {
+  title?: string
+  icon?: IconName
+  items: NavItem[]
+}
+
 /** Fil d'Ariane de l'en-tête, comme dans le tableau de bord Wazuh. */
-function useBreadcrumbs() {
+function useBreadcrumbs(): Crumb[] {
   const { pathname, search } = useLocation()
-  const { state } = useCompliance()
-  return useMemo(() => {
+  const { state } = useComplianceShell()
+  return useMemo<Crumb[]>(() => {
     if (pathname === '/') return [{ label: 'Vue d’ensemble' }]
     if (pathname === '/lacunes') return [{ label: 'Conformité' }, { label: 'Lacunes' }]
     if (pathname.startsWith('/lacunes/')) {
@@ -39,14 +54,14 @@ function useBreadcrumbs() {
 }
 
 export default function Layout() {
-  const { state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can } = useCompliance()
+  const { state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can } = useComplianceShell()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const crumbs = useBreadcrumbs()
   const [docked, setDocked] = useState(readDocked)
   const [flyout, setFlyout] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
-  const fileRef = useRef(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setFlyout(false), [pathname, search])
 
@@ -63,7 +78,7 @@ export default function Layout() {
       })
   }
 
-  const onImport = async (e) => {
+  const onImport = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -71,20 +86,20 @@ export default function Layout() {
       importData(JSON.parse(await file.text()))
       notify('Sauvegarde importée.')
     } catch (err) {
-      notify(err.message || 'Fichier invalide.', 'error')
+      notify(err instanceof Error ? err.message : 'Fichier invalide.', 'error')
     }
   }
 
   const openGaps = state ? activeGaps(state.gaps).filter(isOpen).length : 0
   const vue = new URLSearchParams(search).get('vue')
-  const isActive = (to) => {
+  const isActive = (to: string) => {
     const [path, qs] = to.split('?')
     if (path === '/') return pathname === '/'
     if (path === '/roadmap') return pathname === '/roadmap' && (qs ? vue === 'kanban' : vue !== 'kanban')
     return pathname === path || pathname.startsWith(`${path}/`)
   }
 
-  const groups = [
+  const groups: NavGroup[] = [
     { items: [{ to: '/', label: 'Vue d’ensemble', icon: 'home' }] },
     {
       title: 'Conformité',
@@ -159,7 +174,7 @@ export default function Layout() {
               onChange={(e) => {
                 switchUser(e.target.value)
                 const u = state.users.find((x) => x.id === e.target.value)
-                notify(`Connecté en tant que ${u.name} (${ROLES[u.role].label}).`, 'info')
+                if (u) notify(`Connecté en tant que ${u.name} (${ROLES[u.role].label}).`, 'info')
               }}
               title="Simulation de connexion : changer d'utilisateur"
             >
@@ -180,18 +195,18 @@ export default function Layout() {
           <div key={gi} className="nav-group">
             {g.title && (
               <div className="nav-group__title">
-                <Icon name={g.icon} />
+                {g.icon && <Icon name={g.icon} />}
                 {g.title}
               </div>
             )}
             <ul>
               {g.items.map((it) => (
                 <li key={it.label}>
-                  {it.to ? (
+                  {'to' in it ? (
                     <Link to={it.to} className={`nav-link ${isActive(it.to) ? 'is-active' : ''} ${g.title ? '' : 'is-top'}`} aria-current={isActive(it.to) ? 'page' : undefined}>
                       <Icon name={it.icon} />
                       <span>{it.label}</span>
-                      {it.count > 0 && <span className="nav-count">{it.count}</span>}
+                      {!!it.count && <span className="nav-count">{it.count}</span>}
                     </Link>
                   ) : (
                     <button type="button" className="nav-link" onClick={it.onClick} disabled={it.disabled} title={it.title}>

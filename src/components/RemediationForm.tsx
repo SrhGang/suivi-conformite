@@ -1,19 +1,29 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { REMEDIATION_STATUSES, REMEDIATION_TYPES } from '../data/constants.js'
-import { useCompliance } from '../store/ComplianceContext.jsx'
-import { addDays, today } from '../utils/dates.js'
-import { Modal } from './ui.jsx'
+import { REMEDIATION_STATUSES, REMEDIATION_TYPES } from '../data/constants'
+import { useCompliance } from '../store/ComplianceContext'
+import { addDays, today } from '../utils/dates'
+import type { FieldErrors, Remediation, RemediationInput, RemediationStatusId, RemediationTypeId } from '../types'
+import { Modal } from './ui'
+
+type RemediationFormState = Required<RemediationInput> & { gapId: string }
+
+interface RemediationFormProps {
+  remediation?: Remediation | null
+  gapId?: string
+  onClose: () => void
+  showGapLink?: boolean
+}
 
 /**
  * Création / édition d'une remédiation (moyen mis en place pour corriger
  * une lacune). Si `gapId` n'est pas fourni, l'utilisateur choisit la lacune.
  */
-export default function RemediationForm({ remediation, gapId, onClose, showGapLink }) {
+export default function RemediationForm({ remediation, gapId, onClose, showGapLink }: RemediationFormProps) {
   const { state, addRemediation, updateRemediation, notify, can } = useCompliance()
   const editing = !!remediation
   const readOnly = !can('edit')
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState<RemediationFormState>(() => ({
     gapId: remediation?.gapId ?? gapId ?? '',
     title: remediation?.title ?? '',
     type: remediation?.type ?? 'bonne_pratique',
@@ -24,28 +34,28 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
     owner: remediation?.owner ?? state.currentUserId,
     description: remediation?.description ?? '',
   }))
-  const [errors, setErrors] = useState({})
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const set = <K extends keyof RemediationFormState>(k: K, v: RemediationFormState[K]) => setForm((f) => ({ ...f, [k]: v }))
   const openGaps = state.gaps.filter((g) => !g.archived && g.status !== 'validee')
 
-  const submit = (e) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!form.gapId) {
       setErrors({ gapId: 'Choisissez la lacune concernée.' })
       return
     }
-    const payload = { ...form, progress: Number(form.progress) }
-    const res = editing ? updateRemediation(remediation.id, payload) : addRemediation(form.gapId, payload)
-    if (res.error) {
+    const { gapId: targetGap, ...payload } = { ...form, progress: Number(form.progress) }
+    const res = remediation ? updateRemediation(remediation.id, payload) : addRemediation(targetGap, payload)
+    if (!res.ok) {
       setErrors(res.errors ?? {})
       notify(res.error, 'error')
       return
     }
-    notify(editing ? `${remediation.id} mise à jour.` : `Remédiation ${res.result.id} ajoutée.`)
+    notify(remediation ? `${remediation.id} mise à jour.` : `Remédiation ${res.result.id} ajoutée.`)
     onClose()
   }
 
-  const title = editing ? `${remediation.id} — ${readOnly ? 'Détail' : 'Modifier'}` : 'Nouvelle remédiation'
+  const title = remediation ? `${remediation.id} — ${readOnly ? 'Détail' : 'Modifier'}` : 'Nouvelle remédiation'
   return (
     <Modal title={title} onClose={onClose}>
       <form onSubmit={submit} noValidate>
@@ -78,7 +88,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
           <div className="form-grid">
             <div className="field">
               <label htmlFor="rem-type">Type de moyen *</label>
-              <select id="rem-type" className="input" value={form.type} onChange={(e) => set('type', e.target.value)}>
+              <select id="rem-type" className="input" value={form.type} onChange={(e) => set('type', e.target.value as RemediationTypeId)}>
                 {REMEDIATION_TYPES.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
@@ -98,7 +108,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
             </div>
             <div className="field">
               <label htmlFor="rem-status">Statut</label>
-              <select id="rem-status" className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
+              <select id="rem-status" className="input" value={form.status} onChange={(e) => set('status', e.target.value as RemediationStatusId)}>
                 {REMEDIATION_STATUSES.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
