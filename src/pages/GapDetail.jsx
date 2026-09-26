@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import EvidencePanel from '../components/EvidencePanel.jsx'
+import Icon from '../components/Icon.jsx'
 import GapForm from '../components/GapForm.jsx'
 import RemediationForm from '../components/RemediationForm.jsx'
 import {
@@ -92,8 +93,8 @@ export default function GapDetail() {
           <CriticalityBadge value={gap.criticality} />
           <StatusBadge value={gap.status} />
           {late && <LateBadge label={`Échéance ${relativeDue(gap.dueDate)}`} />}
-          {isReviewDue(gap) && <span className="badge badge--warning">🔁 Revue périodique due</span>}
-          {gap.archived && <span className="badge badge--neutral">🗄 Archivée</span>}
+          {isReviewDue(gap) && <span className="badge badge--warning">Revue périodique due</span>}
+          {gap.archived && <span className="badge badge--neutral">Archivée</span>}
           <span className="badge badge--outline" style={{ background: 'rgba(255,255,255,0.9)' }}>
             Avancement {gapProgress(gap, state.remediations)} %
           </span>
@@ -193,7 +194,7 @@ export default function GapDetail() {
 
           <div className="card stack">
             <button className="btn btn--primary" onClick={() => setEditing(true)} disabled={!editable}>
-              ✏️ Éditer
+              Éditer
             </button>
             <button
               className="btn btn--secondary"
@@ -207,15 +208,15 @@ export default function GapDetail() {
                 }
               }}
             >
-              ⧉ Dupliquer
+              Dupliquer
             </button>
             {gap.archived ? (
               <button className="btn btn--secondary" disabled={!can('archive')} onClick={() => { const r = restoreGap(gap.id); r.error ? notify(r.error, 'error') : notify('Lacune restaurée.') }}>
-                ↩ Restaurer
+                Restaurer
               </button>
             ) : (
               <button className="btn btn--danger" disabled={!can('archive')} title={!can('archive') ? 'Réservé au responsable validant' : undefined} onClick={() => setArchiving(true)}>
-                🗄 Archiver
+                Archiver
               </button>
             )}
           </div>
@@ -251,14 +252,14 @@ export default function GapDetail() {
               'La validation et la prochaine revue seront annulées. Le changement est tracé dans l’historique.'
             )
           }
-          confirmLabel={statusDialog === 'validee' ? '✓ Valider et signer' : 'Rouvrir'}
+          confirmLabel={statusDialog === 'validee' ? 'Valider et signer' : 'Rouvrir'}
           tone={statusDialog === 'validee' ? 'success' : 'accent'}
           withComment
           commentLabel={statusDialog === 'validee' ? 'Commentaire de validation' : 'Motif de la réouverture'}
           onClose={() => setStatusDialog(null)}
           onConfirm={(comment) => {
             const r = changeGapStatus(gap.id, statusDialog, comment)
-            r.error ? notify(r.error, 'error') : notify(statusDialog === 'validee' ? 'Lacune validée ✓' : 'Lacune rouverte.')
+            r.error ? notify(r.error, 'error') : notify(statusDialog === 'validee' ? 'Lacune validée.' : 'Lacune rouverte.')
             setStatusDialog(null)
           }}
         />
@@ -365,7 +366,7 @@ function RemediationsTab({ gap, remediations, editable }) {
                   </button>
                   {editable && (
                     <button className="btn btn--ghost btn--sm" onClick={() => setDeleting(r)} aria-label={`Supprimer ${r.id}`}>
-                      🗑
+                      <Icon name="trash" />
                     </button>
                   )}
                 </div>
@@ -384,10 +385,10 @@ function RemediationsTab({ gap, remediations, editable }) {
                   <RemStatusBadge value={r.status} />
                 )}
                 <span>
-                  👤 <UserName id={r.owner} />
+                  <UserName id={r.owner} />
                 </span>
                 <span>
-                  📅 {formatDate(r.startDate)} → <strong style={{ color: late ? 'var(--error-dark)' : undefined }}>{formatDate(r.targetDate)}</strong>
+                  {formatDate(r.startDate)} → <strong style={{ color: late ? 'var(--error-dark)' : undefined }}>{formatDate(r.targetDate)}</strong>
                 </span>
                 {late && <LateBadge />}
                 <Link to={`/roadmap?focus=${r.id}`} className="small">
@@ -467,14 +468,14 @@ function ProofTab({ gap, blockers, onValidate }) {
     <div>
       {gap.status === 'validee' && gap.validation ? (
         <div className="validation-box">
-          <strong>✓ Validée</strong> par <UserName id={gap.validation.by} /> le {formatDateTime(gap.validation.date)}
+          <strong>Validée</strong> par <UserName id={gap.validation.by} /> le {formatDateTime(gap.validation.date)}
           {gap.validation.comment && <div className="small" style={{ marginTop: 4 }}>« {gap.validation.comment} »</div>}
           <div className="small" style={{ marginTop: 8 }}>
             Prochaine revue périodique : <strong>{formatDate(gap.nextReviewDate)}</strong> ({relativeDue(gap.nextReviewDate)}) — tous les {reviewIntervalMonths(gap)} mois pour une criticité {CRITICALITY_BY_ID[gap.criticality].label.toLowerCase()}.
           </div>
           {can('review') && !gap.archived && (
             <button className={`btn ${reviewDue ? 'btn--accent' : 'btn--secondary'} btn--sm`} style={{ marginTop: 12 }} onClick={() => setReviewing(true)}>
-              🔁 Effectuer la revue périodique
+              Effectuer la revue périodique
             </button>
           )}
         </div>
@@ -482,12 +483,12 @@ function ProofTab({ gap, blockers, onValidate }) {
         <div className="validation-box validation-box--pending">
           <strong>Conditions de validation</strong>
           <ul className="small" style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <li>{blockers.some((b) => b.includes('preuve')) ? '☐' : '☑'} Au moins une preuve de conformité jointe</li>
-            <li>{blockers.some((b) => b.includes('responsable')) ? '☐' : '☑'} Validation par un responsable validant (signature)</li>
+            <li>{blockers.some((b) => b.includes('preuve')) ? <Icon name="x" /> : <Icon name="check" />} Au moins une preuve de conformité jointe</li>
+            <li>{blockers.some((b) => b.includes('responsable')) ? <Icon name="x" /> : <Icon name="check" />} Validation par un responsable validant (signature)</li>
           </ul>
           {!blockers.length && !gap.archived && (
             <button className="btn btn--success btn--sm" style={{ marginTop: 12 }} onClick={onValidate}>
-              ✓ Valider la lacune
+              Valider la lacune
             </button>
           )}
         </div>
@@ -503,7 +504,7 @@ function ProofTab({ gap, blockers, onValidate }) {
             {[...gap.reviews].reverse().map((r) => (
               <li key={r.id} className={r.outcome === 'conforme' ? 't-validation' : 't-reopen'}>
                 <div className="timeline__head">
-                  <span className="timeline__action">{r.outcome === 'conforme' ? '✓ Toujours conforme' : '✕ Non conforme'}</span>
+                  <span className="timeline__action">{r.outcome === 'conforme' ? 'Toujours conforme' : 'Non conforme'}</span>
                   <span className="muted tiny">
                     {formatDateTime(r.date)} · <UserName id={r.by} />
                   </span>

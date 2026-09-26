@@ -6,6 +6,10 @@ import {
   REMEDIATION_TYPE_BY_ID,
 } from '../data/constants.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
+import Icon from './Icon.jsx'
+
+// Anciennes icônes emoji → glyphes linéaires.
+const ICON_ALIASES = { '📭': 'search', '🛡️': 'shield', '📋': 'list', '🔍': 'search', '🔎': 'search', '✅': 'check', '🛠️': 'edit', '🕓': 'clock', '🗓️': 'calendar', '🧭': 'home' }
 
 export function CriticalityBadge({ value }) {
   const c = CRITICALITY_BY_ID[value]
@@ -18,33 +22,36 @@ export function CriticalityDot({ value }) {
   return <span className={`dot dot--${c?.tone}`} aria-hidden="true" />
 }
 
-export function StatusBadge({ value }) {
-  const s = GAP_STATUS_BY_ID[value]
-  if (!s) return null
+/** Indicateur d'état « pastille + libellé » (EuiHealth), comme le statut des agents Wazuh. */
+export function Health({ tone, children }) {
   return (
-    <span className={`badge badge--${s.tone}`}>
-      {value === 'validee' && '✓ '}
-      {s.label}
+    <span className={`health health--${tone}`}>
+      <span className="health__dot" aria-hidden="true" />
+      {children}
     </span>
   )
 }
 
+export function StatusBadge({ value }) {
+  const s = GAP_STATUS_BY_ID[value]
+  if (!s) return null
+  return <Health tone={s.tone}>{s.label}</Health>
+}
+
 export function RemStatusBadge({ value }) {
   const s = REMEDIATION_STATUS_BY_ID[value]
-  return s ? <span className={`badge badge--${s.tone}`}>{s.label}</span> : null
+  return s ? <Health tone={s.tone}>{s.label}</Health> : null
 }
 
 export function RemTypeBadge({ value }) {
   const t = REMEDIATION_TYPE_BY_ID[value]
   return t ? (
-    <span className="badge badge--outline">
-      <span aria-hidden="true">{t.icon}</span> {t.label}
-    </span>
+    <span className="badge badge--outline">{t.label}</span>
   ) : null
 }
 
 export function LateBadge({ label = 'En retard' }) {
-  return <span className="badge badge--error">⚠ {label}</span>
+  return <span className="badge badge--error">{label}</span>
 }
 
 export function Progress({ value, label = true, success }) {
@@ -151,7 +158,7 @@ export function Menu({ items, label = 'Actions' }) {
   return (
     <div className="menu" ref={ref}>
       <button className="btn btn--ghost btn--icon" aria-label={label} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        ⋯
+        <Icon name="more" />
       </button>
       {open && (
         <div className="menu__list" role="menu">
@@ -166,7 +173,7 @@ export function Menu({ items, label = 'Actions' }) {
                 it.onClick()
               }}
             >
-              <span aria-hidden="true">{it.icon}</span> {it.label}
+              {it.icon && <Icon name={it.icon} />} {it.label}
             </button>
           ))}
         </div>
@@ -175,11 +182,11 @@ export function Menu({ items, label = 'Actions' }) {
   )
 }
 
-export function EmptyState({ icon = '📭', title, children, action }) {
+export function EmptyState({ icon = 'search', title, children, action }) {
   return (
     <div className="empty">
-      <div className="empty__icon" aria-hidden="true">
-        {icon}
+      <div className="empty__icon">
+        <Icon name={ICON_ALIASES[icon] ?? icon} size={32} />
       </div>
       <h3>{title}</h3>
       {children && <p>{children}</p>}
@@ -194,12 +201,14 @@ export function Skeleton({ height = 16, width = '100%', style }) {
 
 export function Toasts() {
   const { toasts, dismissToast } = useCompliance()
-  const icon = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' }
+  const icon = { success: 'check', error: 'x', warning: 'alert', info: 'clock' }
   return (
     <div className="toasts" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className={`toast toast--${t.tone}`} role={t.tone === 'error' ? 'alert' : 'status'}>
-          <span aria-hidden="true">{icon[t.tone]}</span>
+          <span className="toast__icon">
+            <Icon name={icon[t.tone]} />
+          </span>
           <span>{t.message}</span>
           <button onClick={() => dismissToast(t.id)} aria-label="Fermer la notification">
             ×
@@ -214,7 +223,8 @@ export function Toasts() {
 export function Donut({ value, size = 180, stroke = 18, label = 'conformité' }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
-  const color = value >= 80 ? 'var(--success)' : value >= 50 ? 'var(--primary-700)' : 'var(--accent)'
+  // Seuils du score de conformité (mêmes zones que la jauge de score Wazuh).
+  const color = value >= 80 ? 'var(--success)' : value >= 50 ? 'var(--primary-800)' : value >= 30 ? 'var(--severity-high)' : 'var(--error)'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`Score global : ${value} %`}>
       <title>{`Score global pondéré : ${value} %`}</title>
@@ -227,11 +237,11 @@ export function Donut({ value, size = 180, stroke = 18, label = 'conformité' })
         stroke={color}
         strokeWidth={stroke}
         strokeDasharray={`${(c * value) / 100} ${c}`}
-        strokeLinecap="round"
+        strokeLinecap="butt"
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: 'stroke-dasharray 0.6s ease' }}
       />
-      <text x="50%" y="48%" textAnchor="middle" fontSize={size / 5} fontWeight="700" fill="var(--primary-800)">
+      <text x="50%" y="48%" textAnchor="middle" fontSize={size / 5} fontWeight="600" fill="var(--text-title)">
         {value} %
       </text>
       <text x="50%" y="63%" textAnchor="middle" fontSize={12} fill="var(--neutral-500)">

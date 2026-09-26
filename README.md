@@ -53,8 +53,9 @@ src/
   utils/       calculs de conformité, dates, export (HTML, CSV, JSON)
   components/  mise en page, formulaires, preuves, composants UI
   pages/       Dashboard, GapsInventory, GapDetail, Roadmap, Referentiel
-  styles/      design-system.css (fourni) + app.css
-docs/specs/    spécifications et guide de design d'origine
+  styles/      design-system.css (v2, style Wazuh/OUI) + app.css
+docs/specs/    spécifications et guide de design d'origine (v1)
+docs/design-system.md   design system v2 inspiré du tableau de bord Wazuh
 ```
 
 ## Limites du prototype

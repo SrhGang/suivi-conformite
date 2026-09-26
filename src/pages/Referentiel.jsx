@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import Icon from '../components/Icon.jsx'
 import { CriticalityBadge, Progress, StatusBadge } from '../components/ui.jsx'
 import { ISO_CONTROLS, NIS2_REQUIREMENTS, THEMES } from '../data/isoControls.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
@@ -94,7 +95,7 @@ export default function Referentiel() {
               {nis2Coverage.map((n) => (
                 <tr key={n.id}>
                   <td title={n.description}>
-                    <strong style={{ color: 'var(--primary-800)' }}>{n.label}</strong>
+                    <strong style={{ color: 'var(--text-title)' }}>{n.label}</strong>
                     <div className="tiny muted">{n.description}</div>
                   </td>
                   <td className="num">{n.total}</td>
@@ -152,7 +153,7 @@ export default function Referentiel() {
                   <div key={c.id} id={`ctrl-${c.id}`} className={`control-item ${st === 'open' ? 'is-open' : st === 'validated' ? 'is-ok' : ''}`} style={focus === c.id ? { boxShadow: '0 0 0 3px var(--primary-500)' } : undefined}>
                     <span className="control-item__id">{c.id}</span>
                     <div className="control-item__body">
-                      <div style={{ fontWeight: 600, color: 'var(--primary-800)' }}>{c.title}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-title)' }}>{c.title}</div>
                       <div className="tiny muted">NIS2 : {c.nis2.join(', ')}</div>
                       {gaps.length > 0 && (
                         <ul style={{ margin: '6px 0 0', paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -169,7 +170,7 @@ export default function Referentiel() {
                       )}
                     </div>
                     <span className="tiny" title={st === 'open' ? 'Lacune ouverte' : st === 'validated' ? 'Lacune(s) corrigée(s) et validée(s)' : 'Aucune lacune identifiée'}>
-                      {st === 'open' ? '✕' : '✓'}
+                      {st === 'open' ? <Icon name="x" /> : <Icon name="check" />}
                     </span>
                   </div>
                 )

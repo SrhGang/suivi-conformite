@@ -56,7 +56,7 @@ export default function ExportDialog() {
           Fermer
         </button>
         <button className="btn btn--primary" onClick={copy}>
-          {copied ? '✓ Copié' : 'Copier le contenu'}
+          {copied ? 'Copié' : 'Copier le contenu'}
         </button>
       </div>
     </Modal>
