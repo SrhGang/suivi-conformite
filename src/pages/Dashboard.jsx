@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import GapForm from '../components/GapForm.jsx'
 import ExportButton from '../components/ExportButton.jsx'
+import Icon from '../components/Icon.jsx'
 import { CriticalityDot, Donut, EmptyState, Progress, UserName } from '../components/ui.jsx'
 import { CRITICALITIES, CRITICALITY_BY_ID, GAP_STATUSES } from '../data/constants.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
@@ -16,10 +17,11 @@ import {
   weightedScore,
 } from '../utils/compliance.js'
 import { formatDate, formatDateTime } from '../utils/dates.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { exportCsv, exportReport, printReport } from '../utils/report.js'
 
-const CRIT_COLORS = { critique: 'var(--error)', haute: 'var(--warning)', moyenne: 'var(--medium)', basse: 'var(--info)' }
-const ALERT_ICON = { overdue: '⏰', critical: '🔴', review: '🔁', remediation: '🛠️' }
+const CRIT_COLORS = { critique: 'var(--severity-critical)', haute: 'var(--severity-high)', moyenne: 'var(--severity-medium)', basse: 'var(--severity-low)' }
+const ALERT_ICON = { overdue: 'clock', critical: 'alert', review: 'cycle', remediation: 'edit' }
 
 export default function Dashboard() {
   const { state, can, notify } = useCompliance()
@@ -48,10 +50,10 @@ export default function Dashboard() {
 
   const nextMilestone = state.milestones.find((m) => m.date >= new Date().toISOString().slice(0, 10))
   const exportItems = [
-    { icon: '📄', label: 'Rapport HTML', onClick: () => exportReport(state) },
-    { icon: '🖨️', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') },
-    { icon: '📊', label: 'Export CSV des lacunes', onClick: () => exportCsv(state) },
-  ]
+    { icon: 'report', label: 'Rapport HTML', onClick: () => exportReport(state) },
+    !IS_ARTIFACT && { icon: 'file', label: 'Imprimer / PDF', onClick: () => !printReport(state) && notify('Autorisez les fenêtres pop-up pour imprimer.', 'warning') },
+    { icon: 'table', label: 'Export CSV des lacunes', onClick: () => exportCsv(state) },
+  ].filter(Boolean)
 
   if (!data.gaps.length) {
     return (
@@ -162,7 +164,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ marginTop: 24 }}>
-            <div className="small" style={{ fontWeight: 600, color: 'var(--primary-800)' }}>
+            <div className="small" style={{ fontWeight: 600, color: 'var(--text-title)' }}>
               Lacunes ouvertes par criticité
             </div>
             <div className="crit-dist" role="img" aria-label="Répartition des lacunes ouvertes par criticité">
@@ -209,7 +211,9 @@ export default function Dashboard() {
                 {alerts.map((a, i) => (
                   <li key={`${a.kind}-${a.gap.id}-${a.remediation?.id ?? i}`}>
                     <button className={`alert-item alert-item--${CRITICALITY_BY_ID[a.gap.criticality].tone}`} onClick={() => navigate(`/lacunes/${a.gap.id}${a.kind === 'remediation' ? '?onglet=remediations' : a.kind === 'review' ? '?onglet=preuves' : ''}`)}>
-                      <span aria-hidden="true">{ALERT_ICON[a.kind]}</span>
+                      <span className="alert-item__icon">
+                        <Icon name={ALERT_ICON[a.kind]} />
+                      </span>
                       <span className="alert-item__body">
                         <span className="alert-item__title" style={{ display: 'block' }}>
                           {a.gap.id} · {a.gap.title}
@@ -237,16 +241,16 @@ export default function Dashboard() {
           </div>
           <div className="quick-actions">
             <button className="btn btn--secondary" onClick={() => setCreating(true)} disabled={!can('edit')}>
-              ➕ Nouvelle lacune
+              Nouvelle lacune
             </button>
             <button className="btn btn--secondary" onClick={() => navigate('/roadmap')}>
-              🗓️ Voir la roadmap
+              Voir la roadmap
             </button>
             <button className="btn btn--secondary" onClick={() => navigate('/lacunes')}>
-              📋 Toutes les lacunes
+              Toutes les lacunes
             </button>
             <button className="btn btn--secondary" onClick={() => exportReport(state)}>
-              📄 Exporter le rapport
+              Exporter le rapport
             </button>
           </div>
         </section>

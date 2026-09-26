@@ -11,6 +11,14 @@ npm test         # tests unitaires de la logique métier (Vitest)
 npm run build    # build de production dans dist/
 ```
 
+Pour produire la version en ligne (page unique autonome, hébergeable comme page claude.ai) :
+
+```bash
+npm run build:artifact   # → artifact/suivi-conformite.html
+```
+
+Dans cette version, la navigation se fait en mémoire (sans URL) et, les téléchargements y étant bloqués, les exports (rapport, CSV, sauvegarde JSON) s'affichent dans une fenêtre avec un bouton « Copier ».
+
 Les données sont stockées dans le `localStorage` du navigateur. Au premier lancement, un jeu de démonstration est chargé : un organisme fictif du secteur de l'eau, entité essentielle NIS2, avec 26 lacunes, 32 remédiations et 11 preuves. Le pied de page permet d'exporter ou d'importer une sauvegarde JSON et de réinitialiser la démo.
 
 ## Pages
@@ -45,8 +53,9 @@ src/
   utils/       calculs de conformité, dates, export (HTML, CSV, JSON)
   components/  mise en page, formulaires, preuves, composants UI
   pages/       Dashboard, GapsInventory, GapDetail, Roadmap, Referentiel
-  styles/      design-system.css (fourni) + app.css
-docs/specs/    spécifications et guide de design d'origine
+  styles/      design-system.css (v2, style Wazuh/OUI) + app.css
+docs/specs/    spécifications et guide de design d'origine (v1)
+docs/design-system.md   design system v2 inspiré du tableau de bord Wazuh
 ```
 
 ## Limites du prototype

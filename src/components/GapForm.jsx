@@ -163,7 +163,7 @@ export default function GapForm({ gap, onClose, onSaved }) {
             <select id="gap-crit" className="input" value={form.criticality} onChange={(e) => setCriticality(e.target.value)}>
               {CRITICALITIES.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.icon} {c.label} (poids ×{c.weight})
+                  {c.label} (poids ×{c.weight})
                 </option>
               ))}
             </select>

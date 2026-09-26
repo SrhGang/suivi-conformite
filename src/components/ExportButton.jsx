@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import Icon from './Icon.jsx'
 
 /** Bouton « Exporter » avec menu déroulant (rapport HTML, impression, CSV). */
-export default function ExportButton({ items, label = '⬇ Exporter le rapport' }) {
+export default function ExportButton({ items, label = 'Exporter le rapport' }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="menu">
@@ -11,7 +12,7 @@ export default function ExportButton({ items, label = '⬇ Exporter le rapport' 
         aria-expanded={open}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       >
-        {label} ▾
+        <Icon name="download" /> {label}
       </button>
       {open && (
         <div className="menu__list" role="menu">
@@ -25,7 +26,7 @@ export default function ExportButton({ items, label = '⬇ Exporter le rapport' 
                 it.onClick()
               }}
             >
-              <span aria-hidden="true">{it.icon}</span> {it.label}
+              {it.icon && <Icon name={it.icon} />} {it.label}
             </button>
           ))}
         </div>

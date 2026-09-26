@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { EVIDENCE_TYPES, EVIDENCE_TYPE_BY_ID } from '../data/constants.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
 import { formatDateTime } from '../utils/dates.js'
+import Icon from './Icon.jsx'
 import { ConfirmDialog, UserName } from './ui.jsx'
 
 const MAX_INLINE = 1024 * 1024 // 1 Mo : au-delà, seules les métadonnées sont conservées localement.
@@ -14,12 +16,10 @@ const formatSize = (n) => {
 }
 
 const iconFor = (ev) => {
-  if (ev.url) return '🔗'
+  if (ev.url) return 'link'
   const ext = ev.name.split('.').pop().toLowerCase()
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️'
-  if (ext === 'pdf') return '📕'
-  if (['csv', 'xlsx', 'xls'].includes(ext)) return '📊'
-  return '📄'
+  if (['csv', 'xlsx', 'xls'].includes(ext)) return 'table'
+  return 'file'
 }
 
 const guessType = (name) => {
@@ -81,7 +81,7 @@ export default function EvidencePanel({ gap }) {
           {evidence.map((ev) => (
             <li key={ev.id}>
               <span className="icon" aria-hidden="true">
-                {iconFor(ev)}
+                <Icon name={iconFor(ev)} size={20} />
               </span>
               <div className="body">
                 <div className="name">{ev.name}</div>
@@ -91,15 +91,15 @@ export default function EvidencePanel({ gap }) {
               </div>
               {ev.url ? (
                 <a className="btn btn--ghost btn--sm" href={ev.url} target="_blank" rel="noopener noreferrer">
-                  Ouvrir ↗
+                  Ouvrir
                 </a>
-              ) : ev.dataUrl ? (
+              ) : ev.dataUrl && !IS_ARTIFACT ? (
                 <a className="btn btn--ghost btn--sm" href={ev.dataUrl} download={ev.name}>
                   Télécharger
                 </a>
               ) : (
-                <span className="tiny muted" title="Fichier de démonstration ou trop volumineux : seules les métadonnées sont conservées.">
-                  métadonnées
+                <span className="tiny muted" title={ev.dataUrl ? 'Fichier conservé dans ce navigateur.' : 'Fichier de démonstration ou trop volumineux : seules les métadonnées sont conservées.'}>
+                  {ev.dataUrl ? 'stocké localement' : 'métadonnées'}
                 </span>
               )}
               {editable && (
@@ -142,9 +142,7 @@ export default function EvidencePanel({ gap }) {
               upload(e.dataTransfer.files)
             }}
           >
-            <div style={{ fontSize: '1.6rem' }} aria-hidden="true">
-              📎
-            </div>
+            <Icon name="paperclip" size={24} />
             <strong>Déposez un fichier ici</strong> ou cliquez pour parcourir
             <div className="tiny">Capture, certificat, rapport d’audit, extrait de journal… (≤ 1 Mo stocké localement)</div>
             <input ref={fileRef} type="file" multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = '' }} />

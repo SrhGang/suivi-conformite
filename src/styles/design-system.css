@@ -1,155 +1,166 @@
 /**
- * SYSTÈME DE DESIGN - Suivi de Conformité ISO 27001 / NIS2-ANSSI
- * Variables CSS complètes et prêtes à l'emploi
- * À placer dans votre global.css ou main.scss
+ * SYSTÈME DE DESIGN — Suivi de Conformité ISO 27001 / NIS2-ANSSI
+ * Version 2 — inspirée du tableau de bord Wazuh 4.8+ (OpenSearch Dashboards,
+ * thème clair OUI/EUI) : palette neutre bleutée, bleu primaire #006BB8,
+ * couleurs de statut Wazuh, police Inter en 14 px, panneaux à bordure fine.
+ *
+ * Les noms de variables de la v1 sont conservés pour que les composants
+ * existants basculent sans réécriture ; de nouveaux jetons (--text-*,
+ * --border, --severity-*) complètent la palette.
  */
 
 :root {
   /* ========================================
-     COULEURS PRIMAIRES
+     COULEUR PRIMAIRE (OUI primary)
      ======================================== */
-  --primary-900: #051627;    /* Texte fort sur fond clair */
-  --primary-800: #0F3460;    /* En-têtes, navigation principale */
-  --primary-700: #1B5E8F;    /* Boutons, liens */
-  --primary-600: #2779B9;    /* Hover buttons */
-  --primary-500: #3491D6;    /* Focus states */
-  --primary-200: #BCDAFF;
-  --primary-100: #E0ECFF;
-  --primary-50: #F0F6FC;
+  --primary-900: #00365c;
+  --primary-800: #006bb8; /* Boutons pleins, liens actifs, onglets sélectionnés */
+  --primary-700: #005a9e; /* Survol des boutons, liens */
+  --primary-600: #0079a5; /* Liens visités / survol secondaire */
+  --primary-500: #1ba9f5; /* Anneau de focus */
+  --primary-200: #b9d9f0;
+  --primary-100: #e6f1fa; /* Fond d'élément actif (menu, sélection) */
+  --primary-50: #f1f7fc;
+
+  /* L'accent v1 (rouge) devient le bleu d'action : dans Wazuh, les appels
+     à l'action sont bleus, le rouge est réservé au danger. */
+  --accent-dark: #005a9e;
+  --accent: #006bb8;
+  --accent-light: #1ba9f5;
+  --accent-lighter: #e6f1fa;
+
+  /* Secondaire (inutilisé dans l'UI, conservé pour compatibilité) */
+  --secondary-900: #1a1c21;
+  --secondary-800: #343741;
+  --secondary-700: #535966;
+  --secondary-600: #69707d;
+  --secondary-500: #98a2b3;
 
   /* ========================================
-     COULEURS SECONDAIRES
+     STATUTS — valeurs UI_COLOR_STATUS de Wazuh
      ======================================== */
-  --secondary-900: #2C1810;
-  --secondary-800: #5C2E1F;
-  --secondary-700: #8C472E;
-  --secondary-600: #BC613D;
-  --secondary-500: #E97A4C;
+  --success: #007871;
+  --success-light: #e6f1f0;
+  --warning: #fec514;
+  --warning-light: #fff9e8;
+  --error: #bd271e;
+  --error-light: #f8e9e9;
+  --info: #6092c0;
+  --info-light: #eef3f9;
+  --disabled: #646a77;
+  --not-applicable: #b9a888;
 
   /* ========================================
-     ACCENTUATION
+     SÉVÉRITÉS (criticité des lacunes) — même
+     logique que les sévérités de vulnérabilités
      ======================================== */
-  --accent-dark: #C23C2A;       /* Hover accent sombre */
-  --accent: #E94B3C;             /* Accent principal, CTA, alertes */
-  --accent-light: #F26B5E;       /* Hover accent clair */
-  --accent-lighter: #F5917F;    /* Backgrounds accentués clairs */
+  --severity-critical: #bd271e;
+  --severity-high: #e7664c;
+  --severity-medium: #d6bf57;
+  --severity-low: #6092c0;
 
   /* ========================================
-     COULEURS DE STATUT
+     NEUTRES (OUI light shades)
      ======================================== */
-  --success: #27AE60;            /* Succès */
-  --success-light: #D5F4E6;      /* Fond succès clair */
-  --warning: #F39C12;            /* Avertissement */
-  --warning-light: #FCE5D5;      /* Fond avertissement clair */
-  --error: #E74C3C;              /* Erreur */
-  --error-light: #FADBD8;        /* Fond erreur clair */
-  --info: #3498DB;               /* Information */
-  --info-light: #D6EAF8;         /* Fond info clair */
+  --neutral-50: #f5f7fa; /* lightestShade — fond de page, survol de ligne */
+  --neutral-100: #eef2f7;
+  --neutral-200: #d3dae6; /* lightShade — bordures, séparateurs */
+  --neutral-300: #c2cad6;
+  --neutral-400: #98a2b3; /* mediumShade */
+  --neutral-500: #69707d; /* darkShade — texte secondaire */
+  --neutral-600: #535966;
+  --neutral-700: #343741; /* darkestShade — texte courant */
+  --neutral-800: #343741;
+  --neutral-900: #1a1c21; /* titres */
+
+  --text-title: #1a1c21;
+  --text: #343741;
+  --text-subdued: #69707d;
+  --border: #d3dae6;
+  --page-bg: #f5f7fa;
+  --panel-bg: #ffffff;
+
+  /* Mode sombre : hors périmètre du MVP. */
+  --dark-bg-primary: #1d1e24;
+  --dark-bg-secondary: #25262e;
+  --dark-bg-tertiary: #16171c;
+  --dark-text-primary: #dfe5ef;
+  --dark-text-secondary: #98a2b3;
 
   /* ========================================
-     COULEURS NEUTRES (GRISES)
+     OMBRES (EUI « bottom shadows »)
      ======================================== */
-  --neutral-50: #F8F9FA;         /* Backgrounds très clairs */
-  --neutral-100: #E9ECEF;        /* Hover backgrounds */
-  --neutral-200: #DEE2E6;        /* Borders, dividers */
-  --neutral-300: #CED4DA;        /* Disabled, subtle */
-  --neutral-400: #ADB5BD;        /* Texte très pâle */
-  --neutral-500: #6C757D;        /* Texte secondaire */
-  --neutral-600: #495057;        /* Texte corps standard */
-  --neutral-700: #343A40;        /* Texte secondaire fort */
-  --neutral-800: #212529;        /* Texte principal */
-  --neutral-900: #0D1117;        /* Texte très fort */
+  --shadow-xs: 0 0.7px 1.4px rgba(0, 0, 0, 0.07), 0 1.9px 4px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 0.8px 0.8px rgba(0, 0, 0, 0.04), 0 2.3px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 0.9px 4px -1px rgba(0, 0, 0, 0.08), 0 2.6px 8px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 1px 5px rgba(0, 0, 0, 0.1), 0 3.6px 13px rgba(0, 0, 0, 0.07), 0 8.4px 23px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 2.7px 9px rgba(0, 0, 0, 0.13), 0 9.4px 24px rgba(0, 0, 0, 0.09), 0 21.8px 43px rgba(0, 0, 0, 0.08);
 
   /* ========================================
-     COULEURS - MODE SOMBRE (FUTURE)
+     ESPACEMENTS (base 4 px, échelle EUI)
      ======================================== */
-  --dark-bg-primary: #0D1117;
-  --dark-bg-secondary: #161B22;
-  --dark-bg-tertiary: #21262D;
-  --dark-text-primary: #F0F6FC;
-  --dark-text-secondary: #8B949E;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 40px;
+  --space-4xl: 48px;
+  --space-5xl: 64px;
+  --space-6xl: 80px;
 
   /* ========================================
-     OMBRES
+     TYPOGRAPHIE — Inter / Roboto Mono, base 14 px
      ======================================== */
-  --shadow-xs: 0 1px 2px rgba(15, 52, 96, 0.05);
-  --shadow-sm: 0 2px 4px rgba(15, 52, 96, 0.08);
-  --shadow-md: 0 2px 8px rgba(15, 52, 96, 0.1);
-  --shadow-lg: 0 8px 24px rgba(15, 52, 96, 0.15);
-  --shadow-xl: 0 20px 40px rgba(15, 52, 96, 0.2);
+  --font-family-system: 'Inter', 'Inter UI', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-family-mono: 'Roboto Mono', Menlo, Courier, monospace;
 
-  /* ========================================
-     ESPACEMENTS (Base 4px)
-     ======================================== */
-  --space-xs: 4px;               /* Micro espacements */
-  --space-sm: 8px;               /* Petit espacement */
-  --space-md: 12px;              /* Espacement moyen */
-  --space-base: 16px;            /* Espacement standard */
-  --space-lg: 20px;              /* Grand espacement */
-  --space-xl: 24px;              /* Très grand espacement */
-  --space-2xl: 32px;             /* Espacement XL */
-  --space-3xl: 40px;             /* Espacement XXL */
-  --space-4xl: 48px;             /* Espacement XXXL */
-  --space-5xl: 64px;             /* Espacement énorme */
-  --space-6xl: 80px;             /* Espacement maximal */
+  --font-size-h1: 1.5rem; /* 24px — titre de page */
+  --font-size-h2: 1.25rem; /* 20px */
+  --font-size-h3: 1rem; /* 16px — titre de panneau */
+  --font-size-subtitle: 1rem;
+  --font-size-body: 0.875rem; /* 14px — texte courant EUI */
+  --font-size-body-small: 0.875rem;
+  --font-size-small: 0.8125rem; /* 13px */
+  --font-size-tiny: 0.75rem; /* 12px */
 
-  /* ========================================
-     TYPOGRAPHIE
-     ======================================== */
-  --font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  --font-family-mono: 'Courier New', 'Courier', monospace;
-
-  /* Font sizes */
-  --font-size-h1: 2rem;          /* 32px */
-  --font-size-h2: 1.75rem;       /* 28px */
-  --font-size-h3: 1.25rem;       /* 20px */
-  --font-size-subtitle: 1.125rem; /* 18px */
-  --font-size-body: 1rem;        /* 16px */
-  --font-size-body-small: 0.95rem; /* 15px */
-  --font-size-small: 0.875rem;   /* 14px */
-  --font-size-tiny: 0.75rem;     /* 12px */
-
-  /* Font weights */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* Line heights */
   --line-height-tight: 1.2;
   --line-height-snug: 1.3;
   --line-height-normal: 1.4;
   --line-height-relaxed: 1.5;
-  --line-height-comfortable: 1.6;
+  --line-height-comfortable: 1.5;
 
-  /* Letter spacing */
-  --letter-spacing-tight: -0.02em;
-  --letter-spacing-subtle: -0.01em;
-  --letter-spacing-normal: 0em;
-  --letter-spacing-wide: 0.05em;
-  --letter-spacing-wider: 0.1em;
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-subtle: 0;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+  --letter-spacing-wider: 0.06em;
 
   /* ========================================
-     BORDER RADIUS
+     RAYONS — légers, comme EUI
      ======================================== */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
   --radius-full: 9999px;
 
   /* ========================================
-     TRANSITIONS
+     TRANSITIONS / Z-INDEX
      ======================================== */
   --transition-fast: 0.1s ease;
-  --transition-base: 0.2s ease;
-  --transition-slow: 0.3s ease;
-  --transition-slower: 0.5s ease;
+  --transition-base: 0.15s ease-in;
+  --transition-slow: 0.25s ease;
+  --transition-slower: 0.4s ease;
 
-  /* ========================================
-     Z-INDEX (Stacking context)
-     ======================================== */
   --z-hide: -1;
   --z-base: 0;
   --z-dropdown: 100;
@@ -159,236 +170,4 @@
   --z-modal: 500;
   --z-tooltip: 600;
   --z-notification: 700;
-}
-
-/* Mode sombre : hors périmètre du MVP (bloc retiré). */
-
-/* ========================================
-   UTILITY CLASSES (Optionnel)
-   ======================================== */
-
-/* Text utilities */
-.text-h1 {
-  font-size: var(--font-size-h1);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
-  letter-spacing: var(--letter-spacing-tight);
-}
-
-.text-h2 {
-  font-size: var(--font-size-h2);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-snug);
-  letter-spacing: var(--letter-spacing-subtle);
-}
-
-.text-h3 {
-  font-size: var(--font-size-h3);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-normal);
-}
-
-.text-body {
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-regular);
-  line-height: var(--line-height-comfortable);
-}
-
-.text-small {
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-regular);
-  line-height: var(--line-height-relaxed);
-}
-
-.text-tiny {
-  font-size: var(--font-size-tiny);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--line-height-normal);
-  letter-spacing: var(--letter-spacing-wide);
-}
-
-/* Color utilities */
-.text-primary {
-  color: var(--primary-800);
-}
-
-.text-secondary {
-  color: var(--neutral-600);
-}
-
-.text-accent {
-  color: var(--accent);
-}
-
-.text-success {
-  color: var(--success);
-}
-
-.text-error {
-  color: var(--error);
-}
-
-.text-warning {
-  color: var(--warning);
-}
-
-.text-info {
-  color: var(--info);
-}
-
-.bg-primary {
-  background-color: var(--primary-800);
-  color: white;
-}
-
-.bg-accent {
-  background-color: var(--accent);
-  color: white;
-}
-
-.bg-success {
-  background-color: var(--success-light);
-  color: var(--success);
-}
-
-.bg-error {
-  background-color: var(--error-light);
-  color: var(--error);
-}
-
-.bg-warning {
-  background-color: var(--warning-light);
-  color: var(--warning);
-}
-
-.bg-info {
-  background-color: var(--info-light);
-  color: var(--info);
-}
-
-/* Spacing utilities */
-.p-xs  { padding: var(--space-xs); }
-.p-sm  { padding: var(--space-sm); }
-.p-md  { padding: var(--space-md); }
-.p-base { padding: var(--space-base); }
-.p-lg  { padding: var(--space-lg); }
-.p-xl  { padding: var(--space-xl); }
-.p-2xl { padding: var(--space-2xl); }
-.p-3xl { padding: var(--space-3xl); }
-
-.m-xs  { margin: var(--space-xs); }
-.m-sm  { margin: var(--space-sm); }
-.m-md  { margin: var(--space-md); }
-.m-base { margin: var(--space-base); }
-.m-lg  { margin: var(--space-lg); }
-.m-xl  { margin: var(--space-xl); }
-.m-2xl { margin: var(--space-2xl); }
-.m-3xl { margin: var(--space-3xl); }
-
-.gap-xs  { gap: var(--space-xs); }
-.gap-sm  { gap: var(--space-sm); }
-.gap-md  { gap: var(--space-md); }
-.gap-base { gap: var(--space-base); }
-.gap-lg  { gap: var(--space-lg); }
-.gap-xl  { gap: var(--space-xl); }
-.gap-2xl { gap: var(--space-2xl); }
-
-/* Shadow utilities */
-.shadow-xs { box-shadow: var(--shadow-xs); }
-.shadow-sm { box-shadow: var(--shadow-sm); }
-.shadow-md { box-shadow: var(--shadow-md); }
-.shadow-lg { box-shadow: var(--shadow-lg); }
-.shadow-xl { box-shadow: var(--shadow-xl); }
-
-/* Border radius utilities */
-.rounded-sm   { border-radius: var(--radius-sm); }
-.rounded-md   { border-radius: var(--radius-md); }
-.rounded-lg   { border-radius: var(--radius-lg); }
-.rounded-xl   { border-radius: var(--radius-xl); }
-.rounded-2xl  { border-radius: var(--radius-2xl); }
-.rounded-full { border-radius: var(--radius-full); }
-
-/* Component shortcuts */
-.button {
-  padding: var(--space-md) var(--space-lg);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-body-small);
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.button-primary {
-  background-color: var(--primary-800);
-  color: white;
-  box-shadow: var(--shadow-sm);
-}
-
-.button-primary:hover {
-  background-color: var(--primary-700);
-  box-shadow: var(--shadow-md);
-}
-
-.button-accent {
-  background-color: var(--accent);
-  color: white;
-  box-shadow: var(--shadow-sm);
-}
-
-.button-accent:hover {
-  background-color: var(--accent-light);
-  box-shadow: var(--shadow-md);
-}
-
-.card {
-  background: white;
-  padding: var(--space-xl);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-}
-
-.input {
-  padding: var(--space-md);
-  font-size: var(--font-size-body);
-  border: 1px solid var(--neutral-300);
-  border-radius: var(--radius-md);
-  font-family: var(--font-family-system);
-  transition: all var(--transition-base);
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--primary-700);
-  box-shadow: 0 0 0 3px rgba(27, 94, 143, 0.1);
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-tiny);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
-}
-
-.badge-success {
-  background-color: var(--success-light);
-  color: var(--success);
-}
-
-.badge-error {
-  background-color: var(--error-light);
-  color: var(--error);
-}
-
-.badge-warning {
-  background-color: var(--warning-light);
-  color: var(--warning);
-}
-
-.badge-info {
-  background-color: var(--info-light);
-  color: var(--info);
 }

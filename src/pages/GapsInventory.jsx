@@ -133,10 +133,10 @@ export default function GapsInventory() {
         </div>
         <div className="page-head__actions">
           <ExportButton
-            label="⬇ Exporter"
+            label="Exporter"
             items={[
-              { icon: '📊', label: 'Export CSV', onClick: () => exportCsv(state) },
-              { icon: '📄', label: 'Rapport HTML', onClick: () => exportReport(state) },
+              { icon: 'table', label: 'Export CSV', onClick: () => exportCsv(state) },
+              { icon: 'report', label: 'Rapport HTML', onClick: () => exportReport(state) },
             ]}
           />
           {can('edit') && (
@@ -158,7 +158,7 @@ export default function GapsInventory() {
           <option value="">Toutes criticités</option>
           {CRITICALITIES.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon} {c.label}
+              {c.label}
             </option>
           ))}
         </select>
@@ -212,7 +212,7 @@ export default function GapsInventory() {
               setParams({}, { replace: true })
             }}
           >
-            ✕ Réinitialiser les filtres
+            Réinitialiser les filtres
           </button>
         )}
       </div>
@@ -268,7 +268,7 @@ export default function GapsInventory() {
                           <div className="tiny muted">
                             {g.controlIds.map((c) => `A.${c}`).join(' · ')}
                             {g.archived && ' · Archivée'}
-                            {isReviewDue(g) && ' · 🔁 revue due'}
+                            {isReviewDue(g) && ' · revue due'}
                           </div>
                         </td>
                         <td className="nowrap small">{getTheme(themeOfGap(g))?.label}</td>
@@ -297,9 +297,9 @@ export default function GapsInventory() {
                           <Menu
                             label={`Actions pour ${g.id}`}
                             items={[
-                              { icon: '👁', label: 'Ouvrir', onClick: () => navigate(`/lacunes/${g.id}`) },
+                              { icon: 'file', label: 'Ouvrir', onClick: () => navigate(`/lacunes/${g.id}`) },
                               {
-                                icon: '⧉',
+                                icon: 'copy',
                                 label: 'Dupliquer',
                                 disabled: !can('edit'),
                                 onClick: () => {
@@ -308,8 +308,8 @@ export default function GapsInventory() {
                                 },
                               },
                               g.archived
-                                ? { icon: '↩', label: 'Restaurer', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => act(restoreGap(g.id), `${g.id} restaurée.`) }
-                                : { icon: '🗄', label: 'Archiver', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => setConfirm(g) },
+                                ? { icon: 'restore', label: 'Restaurer', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => act(restoreGap(g.id), `${g.id} restaurée.`) }
+                                : { icon: 'archive', label: 'Archiver', disabled: !can('archive'), title: !can('archive') ? 'Réservé au responsable validant' : undefined, onClick: () => setConfirm(g) },
                             ]}
                           />
                         </td>

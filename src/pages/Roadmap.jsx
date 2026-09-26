@@ -82,10 +82,10 @@ export default function Roadmap() {
         <div className="page-head__actions">
           <div className="segmented" role="group" aria-label="Vue">
             <button className={view === 'gantt' ? 'active' : ''} onClick={() => update({ vue: '' })}>
-              📊 Gantt
+              Gantt
             </button>
             <button className={view === 'kanban' ? 'active' : ''} onClick={() => update({ vue: 'kanban' })}>
-              🗂 Kanban
+              Kanban
             </button>
           </div>
           {can('edit') && (
@@ -120,7 +120,7 @@ export default function Roadmap() {
           <option value="">Toutes criticités</option>
           {CRITICALITIES.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon} {c.label}
+              {c.label}
             </option>
           ))}
         </select>
@@ -277,7 +277,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
 
           <div className="gantt__row gantt__milestones-row">
             <div className="gantt__label">
-              <strong className="small" style={{ color: 'var(--primary-800)' }}>
+              <strong className="small" style={{ color: 'var(--text-title)' }}>
                 Jalons
               </strong>
               <span className="sub">Objectif de score global</span>
@@ -374,7 +374,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }) {
           <div>
             {REMEDIATION_STATUS_BY_ID[tip.r.status].label} · Lacune {tip.r.gapId} ({CRITICALITY_BY_ID[gapIndex[tip.r.gapId].criticality].label})
           </div>
-          {isRemediationOverdue(tip.r) && <div style={{ color: '#F5B7B1' }}>⚠ En retard de {-diffDays(tip.r.targetDate, today())} j</div>}
+          {isRemediationOverdue(tip.r) && <div style={{ color: '#F5B7B1' }}>En retard de {-diffDays(tip.r.targetDate, today())} j</div>}
         </div>
       )}
     </div>
@@ -466,7 +466,7 @@ function Kanban({ items, gapIndex, onOpen }) {
                       <span>
                         <UserName id={r.owner} withAvatar />
                       </span>
-                      <span style={{ color: late ? 'var(--error-dark)' : undefined, fontWeight: late ? 600 : undefined }}>📅 {formatDate(r.targetDate)}</span>
+                      <span style={{ color: late ? 'var(--error-dark)' : undefined, fontWeight: late ? 600 : undefined }}>{formatDate(r.targetDate)}</span>
                     </div>
                     {late && (
                       <div style={{ marginTop: 6 }}>

@@ -1,23 +1,67 @@
-import { useRef, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ROLES } from '../data/constants.js'
+import { IS_ARTIFACT } from '../platform.js'
 import { useCompliance } from '../store/ComplianceContext.jsx'
+import { activeGaps, isOpen } from '../utils/compliance.js'
 import { formatDateTime } from '../utils/dates.js'
-import { exportBackup } from '../utils/report.js'
+import { exportBackup, exportCsv, exportReport } from '../utils/report.js'
+import ExportDialog from './ExportDialog.jsx'
+import Icon from './Icon.jsx'
 import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui.jsx'
 
-const NAV = [
-  { to: '/', label: 'Tableau de bord', end: true },
-  { to: '/lacunes', label: 'Lacunes' },
-  { to: '/roadmap', label: 'Roadmap' },
-  { to: '/referentiel', label: 'Référentiel' },
-]
+const DOCK_KEY = 'suivi-conformite:nav-docked'
+const readDocked = () => {
+  try {
+    return localStorage.getItem(DOCK_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+/** Fil d'Ariane de l'en-tête, comme dans le tableau de bord Wazuh. */
+function useBreadcrumbs() {
+  const { pathname, search } = useLocation()
+  const { state } = useCompliance()
+  return useMemo(() => {
+    if (pathname === '/') return [{ label: 'Vue d’ensemble' }]
+    if (pathname === '/lacunes') return [{ label: 'Conformité' }, { label: 'Lacunes' }]
+    if (pathname.startsWith('/lacunes/')) {
+      const id = decodeURIComponent(pathname.split('/')[2] ?? '')
+      const gap = state?.gaps.find((g) => g.id === id)
+      return [{ label: 'Conformité' }, { label: 'Lacunes', to: '/lacunes' }, { label: gap ? `${gap.id} · ${gap.title}` : id }]
+    }
+    if (pathname === '/roadmap')
+      return [{ label: 'Plan d’action' }, { label: new URLSearchParams(search).get('vue') === 'kanban' ? 'Tableau Kanban' : 'Roadmap' }]
+    if (pathname === '/referentiel') return [{ label: 'Conformité' }, { label: 'Référentiel ISO ↔ NIS2' }]
+    return [{ label: 'Page introuvable' }]
+  }, [pathname, search, state?.gaps])
+}
 
 export default function Layout() {
-  const { state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify } = useCompliance()
-  const [navOpen, setNavOpen] = useState(false)
+  const { state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can } = useCompliance()
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+  const crumbs = useBreadcrumbs()
+  const [docked, setDocked] = useState(readDocked)
+  const [flyout, setFlyout] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const fileRef = useRef(null)
+
+  useEffect(() => setFlyout(false), [pathname, search])
+
+  const toggleNav = () => {
+    if (window.matchMedia('(max-width: 1099px)').matches) setFlyout((o) => !o)
+    else
+      setDocked((d) => {
+        try {
+          localStorage.setItem(DOCK_KEY, d ? '0' : '1')
+        } catch {
+          /* préférence non conservée */
+        }
+        return !d
+      })
+  }
 
   const onImport = async (e) => {
     const file = e.target.files?.[0]
@@ -31,131 +75,205 @@ export default function Layout() {
     }
   }
 
-  return (
-    <>
-      <header className="app-header">
-        <div className="app-header__inner">
-          <NavLink to="/" className="brand" onClick={() => setNavOpen(false)}>
-            <span className="brand__logo" aria-hidden="true">
-              🔒
-            </span>
-            <span>
-              <span className="brand__title">Conformité ISO 27001</span>
-              <br />
-              <span className="brand__subtitle">NIS2 · ANSSI</span>
-            </span>
-          </NavLink>
-          <button className="nav-toggle" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)}>
-            ☰
-          </button>
-          <nav className={`main-nav ${navOpen ? 'open' : ''}`} aria-label="Navigation principale">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setNavOpen(false)}>
-                {n.label}
-              </NavLink>
-            ))}
-          </nav>
-          {state && currentUser && (
-            <div className="user-switch">
-              <Avatar user={currentUser} />
-              <label className="sr-only" htmlFor="user-select">
-                Utilisateur connecté
-              </label>
-              <select
-                id="user-select"
-                value={currentUser.id}
-                onChange={(e) => {
-                  switchUser(e.target.value)
-                  const u = state.users.find((x) => x.id === e.target.value)
-                  notify(`Connecté en tant que ${u.name} (${ROLES[u.role].label}).`, 'info')
-                }}
-                title="Simulation de connexion : changer d'utilisateur"
-              >
-                {state.users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} — {ROLES[u.role].label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      </header>
-      {currentUser?.role === 'lecteur' && (
-        <div className="readonly-banner">👁 Profil lecteur : consultation et export uniquement.</div>
-      )}
+  const openGaps = state ? activeGaps(state.gaps).filter(isOpen).length : 0
+  const vue = new URLSearchParams(search).get('vue')
+  const isActive = (to) => {
+    const [path, qs] = to.split('?')
+    if (path === '/') return pathname === '/'
+    if (path === '/roadmap') return pathname === '/roadmap' && (qs ? vue === 'kanban' : vue !== 'kanban')
+    return pathname === path || pathname.startsWith(`${path}/`)
+  }
 
-      <main>
-        {status === 'loading' && <LoadingPage />}
-        {status === 'error' && (
-          <div className="page">
-            <div className="banner banner--error" role="alert">
-              <span>✕</span>
-              <div>
-                <strong>Erreur de chargement des données.</strong> {loadError}
-                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                  <button className="btn btn--secondary btn--sm" onClick={retry}>
-                    Réessayer
-                  </button>
-                  <button className="btn btn--danger btn--sm" onClick={resetDemo}>
-                    Réinitialiser avec les données de démonstration
-                  </button>
+  const groups = [
+    { items: [{ to: '/', label: 'Vue d’ensemble', icon: 'home' }] },
+    {
+      title: 'Conformité',
+      icon: 'shield',
+      items: [
+        { to: '/lacunes', label: 'Lacunes', icon: 'list', count: openGaps },
+        { to: '/referentiel', label: 'Référentiel ISO ↔ NIS2', icon: 'book' },
+      ],
+    },
+    {
+      title: 'Plan d’action',
+      icon: 'gantt',
+      items: [
+        { to: '/roadmap', label: 'Roadmap', icon: 'gantt' },
+        { to: '/roadmap?vue=kanban', label: 'Tableau Kanban', icon: 'columns' },
+      ],
+    },
+    {
+      title: 'Rapports',
+      icon: 'report',
+      items: [
+        { label: 'Rapport de conformité', icon: 'report', onClick: () => state && exportReport(state) },
+        { label: 'Export CSV des lacunes', icon: 'table', onClick: () => state && exportCsv(state) },
+      ],
+    },
+    {
+      title: 'Gestion des données',
+      icon: 'refresh',
+      items: [
+        { label: 'Sauvegarde JSON', icon: 'download', onClick: () => state && exportBackup(state) },
+        {
+          label: 'Importer une sauvegarde',
+          icon: 'upload',
+          disabled: !can('admin'),
+          title: !can('admin') ? 'Réservé au responsable validant' : undefined,
+          onClick: () => fileRef.current?.click(),
+        },
+        { label: 'Réinitialiser la démo', icon: 'refresh', onClick: () => setConfirmReset(true) },
+      ],
+    },
+  ]
+
+  return (
+    <div className={`app-shell ${docked ? 'is-docked' : ''} ${flyout ? 'is-flyout' : ''}`}>
+      <header className="app-header">
+        <button className="icon-btn" onClick={toggleNav} aria-label={docked ? 'Réduire le menu' : 'Afficher le menu'} aria-expanded={docked || flyout} aria-controls="side-nav">
+          <Icon name="menu" size={18} />
+        </button>
+        <Link to="/" className="brand" aria-label="Accueil — Conformité ISO 27001">
+          <span className="brand__mark">
+            <Icon name="shield" size={18} />
+          </span>
+          <span className="brand__title">
+            conformité<span className="brand__dot">.</span>
+          </span>
+        </Link>
+        <nav className="breadcrumbs" aria-label="Fil d’Ariane">
+          {crumbs.map((c, i) => (
+            <span key={i} className={`crumb ${i === crumbs.length - 1 ? 'is-last' : ''}`}>
+              {c.to ? <Link to={c.to}>{c.label}</Link> : c.label}
+            </span>
+          ))}
+        </nav>
+        {state && currentUser && (
+          <div className="user-switch">
+            <label className="sr-only" htmlFor="user-select">
+              Utilisateur connecté
+            </label>
+            <select
+              id="user-select"
+              value={currentUser.id}
+              onChange={(e) => {
+                switchUser(e.target.value)
+                const u = state.users.find((x) => x.id === e.target.value)
+                notify(`Connecté en tant que ${u.name} (${ROLES[u.role].label}).`, 'info')
+              }}
+              title="Simulation de connexion : changer d'utilisateur"
+            >
+              {state.users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} — {ROLES[u.role].label}
+                </option>
+              ))}
+            </select>
+            <Avatar user={currentUser} />
+          </div>
+        )}
+      </header>
+
+      <div className="nav-backdrop" onClick={() => setFlyout(false)} aria-hidden="true" />
+      <aside id="side-nav" className="side-nav" aria-label="Navigation principale">
+        {groups.map((g, gi) => (
+          <div key={gi} className="nav-group">
+            {g.title && (
+              <div className="nav-group__title">
+                <Icon name={g.icon} />
+                {g.title}
+              </div>
+            )}
+            <ul>
+              {g.items.map((it) => (
+                <li key={it.label}>
+                  {it.to ? (
+                    <Link to={it.to} className={`nav-link ${isActive(it.to) ? 'is-active' : ''} ${g.title ? '' : 'is-top'}`} aria-current={isActive(it.to) ? 'page' : undefined}>
+                      <Icon name={it.icon} />
+                      <span>{it.label}</span>
+                      {it.count > 0 && <span className="nav-count">{it.count}</span>}
+                    </Link>
+                  ) : (
+                    <button type="button" className="nav-link" onClick={it.onClick} disabled={it.disabled} title={it.title}>
+                      <Icon name={it.icon} />
+                      <span>{it.label}</span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <input ref={fileRef} type="file" accept="application/json" hidden onChange={onImport} />
+        {state && (
+          <div className="side-nav__foot">
+            {state.organization.name}
+            <br />
+            {state.organization.sector}
+          </div>
+        )}
+      </aside>
+
+      <div className="app-main">
+        {currentUser?.role === 'lecteur' && <div className="readonly-banner">Profil lecteur : consultation et export uniquement.</div>}
+        <main>
+          {status === 'loading' && <LoadingPage />}
+          {status === 'error' && (
+            <div className="page">
+              <div className="banner banner--error" role="alert">
+                <Icon name="alert" />
+                <div>
+                  <strong>Erreur de chargement des données.</strong> {loadError}
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                    <button className="btn btn--secondary btn--sm" onClick={retry}>
+                      Réessayer
+                    </button>
+                    <button className="btn btn--danger btn--sm" onClick={resetDemo}>
+                      Réinitialiser avec les données de démonstration
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
+          {status === 'ready' && <Outlet />}
+        </main>
+        {state && (
+          <footer className="app-footer">
+            Dernière mise à jour : {formatDateTime(state.lastUpdated)} · v0.2 (prototype)
+            {IS_ARTIFACT && ' · Démo en ligne : vos modifications restent dans ce navigateur'}
+          </footer>
         )}
-        {status === 'ready' && <Outlet />}
-      </main>
-
-      {state && (
-        <footer className="app-footer">
-          <div className="app-footer__inner">
-            <span>
-              {state.organization.name} · Dernière mise à jour : {formatDateTime(state.lastUpdated)} · v0.1 (prototype)
-            </span>
-            <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <button className="link-button" onClick={() => exportBackup(state)}>
-                Sauvegarde JSON
-              </button>
-              <button className="link-button" onClick={() => fileRef.current?.click()} disabled={currentUser?.role !== 'responsable'} title={currentUser?.role !== 'responsable' ? 'Réservé au responsable validant' : undefined}>
-                Importer
-              </button>
-              <input ref={fileRef} type="file" accept="application/json" hidden onChange={onImport} />
-              <button className="link-button" onClick={() => setConfirmReset(true)}>
-                Réinitialiser la démo
-              </button>
-            </span>
-          </div>
-        </footer>
-      )}
+      </div>
 
       {confirmReset && (
         <ConfirmDialog
           title="Réinitialiser les données"
           message="Toutes les modifications locales seront remplacées par le jeu de démonstration. Pensez à exporter une sauvegarde JSON si nécessaire."
           confirmLabel="Réinitialiser"
-          tone="accent"
+          tone="danger"
           onClose={() => setConfirmReset(false)}
           onConfirm={() => {
             resetDemo()
             setConfirmReset(false)
+            navigate('/')
             notify('Données de démonstration rechargées.', 'info')
           }}
         />
       )}
+      <ExportDialog />
       <Toasts />
-    </>
+    </div>
   )
 }
 
 function LoadingPage() {
   return (
     <div className="page" aria-busy="true" aria-label="Chargement">
-      <Skeleton height={36} width={360} style={{ marginBottom: 24 }} />
+      <Skeleton height={28} width={320} style={{ marginBottom: 24 }} />
       <div className="kpi-grid">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} height={120} />
+          <Skeleton key={i} height={104} />
         ))}
       </div>
       <div className="dash-grid">

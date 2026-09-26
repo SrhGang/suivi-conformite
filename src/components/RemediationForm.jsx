@@ -81,7 +81,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
               <select id="rem-type" className="input" value={form.type} onChange={(e) => set('type', e.target.value)}>
                 {REMEDIATION_TYPES.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.icon} {t.label}
+                    {t.label}
                   </option>
                 ))}
               </select>
