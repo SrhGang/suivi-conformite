@@ -35,7 +35,7 @@ La logique métier (`src/store/actions.ts`) est la même dans les deux modes : l
 # Développement avec le serveur (PostgreSQL local requis)
 cd server && npm install
 DATABASE_URL=postgres://… APP_SECRET=$(openssl rand -hex 32) PUBLIC_ORIGIN=http://localhost:5173 COOKIE_SECURE=false npm run dev
-npm run cli -- create-user --email moi@exemple.fr --name "Moi" --role responsable
+npm run cli -- init --email moi@exemple.fr --name "Moi"   # premier administrateur
 cd .. && npm run dev:api        # le proxy Vite redirige /api vers :3000
 
 # Tests du serveur (base de test dédiée, voir server/test/api.test.ts)
@@ -52,8 +52,8 @@ Déploiement sur une VM (Tailscale, secrets chiffrés avec systemd-creds, Docker
 | `/lacunes` | Inventaire | Recherche plein texte, filtres (criticité, thème, statut, NIS2, en retard, archivées), tri par colonne, pagination par 20, menu Dupliquer / Archiver / Restaurer, export CSV. Les filtres sont conservés dans l'URL |
 | `/lacunes/:id` | Détail | Onglets Détails / Remédiations / Preuves & validation / Historique, statut enregistré automatiquement, panneau de métadonnées, édition, duplication, archivage, revue périodique |
 | `/roadmap` | Roadmap | Vue Gantt (déplacer une barre ou étirer son bord droit pour changer les dates, jalons, ligne « aujourd'hui », périodes 6/12/18 mois ou tout) et vue Kanban (glisser-déposer entre À faire, En cours, Bloqué et Validé) |
-| `/referentiel` | Référentiel | Les 93 mesures de l'annexe A, l'état de chacune et la couverture des exigences NIS2 (art. 20, 21.2 a–j, 23) |
-| `/utilisateurs` | Utilisateurs | Production uniquement, responsable validant : création de comptes, rôles, désactivation, réinitialisation de l'accès |
+| `/referentiel` | Référentiel | Les 93 mesures de l'annexe A, l'état de chacune et la couverture des exigences NIS2 (art. 20, 21.2 a à j, 23) |
+| `/utilisateurs` | Utilisateurs et rôles | Production uniquement, administrateur : création de comptes, rôles, désactivation, réinitialisation de l'accès, informations de l'organisme |
 
 ## Règles métier
 
@@ -64,9 +64,11 @@ Déploiement sur une VM (Tailscale, secrets chiffrés avec systemd-creds, Docker
 - **Pas de suppression définitive** des lacunes : elles sont archivées puis peuvent être restaurées.
 - **Historique** : chaque création, modification (avec l'ancienne et la nouvelle valeur), changement de statut, remédiation, preuve, validation, archivage et revue est enregistré avec son auteur et sa date.
 - **Rôles** : en démo, le sélecteur en haut à droite simule la connexion ; en production, le rôle vient du compte et chaque action est contrôlée par le serveur.
-  - Responsable validant : tous les droits.
+  - Responsable validant : droits du contributeur, plus la validation, l'archivage et les revues périodiques.
   - Contributeur : création et mise à jour, mais pas de validation, d'archivage ni de revue.
   - Lecteur : consultation et export uniquement.
+  - Administrateur (production) : gestion des comptes, des rôles et de l'organisme. Il se cumule avec un rôle métier ; par séparation des tâches (ISO 27001 A.5.3), un administrateur ne peut pas modifier ses propres droits.
+- **Première installation** (production) : le premier administrateur est créé en ligne de commande (`init`). À sa première connexion, un assistant demande le nom de l'organisme et propose de partir de zéro ou d'une liste de lacunes courantes pour une entité NIS2, marquées « à confirmer ». Chaque utilisateur voit ensuite un guide de démarrage adapté à son rôle (bouton « ? » de l'en-tête).
 
 ## Structure
 

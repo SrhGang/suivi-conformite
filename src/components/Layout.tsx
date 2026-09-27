@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { ROLES } from '../data/constants'
+import { roleLabel } from '../data/constants'
 import { IS_ARTIFACT } from '../platform'
 import { useComplianceShell } from '../store/ComplianceContext'
 import { activeGaps, isOpen } from '../utils/compliance'
@@ -10,6 +10,7 @@ import { exportBackup, exportCsv, exportReport } from '../utils/report'
 import { useColorMode } from '../theme'
 import ExportDialog from './ExportDialog'
 import Icon, { type IconName } from './Icon'
+import Onboarding from './Onboarding'
 import { Avatar, ConfirmDialog, Skeleton, Toasts } from './ui'
 
 const DOCK_KEY = 'suivi-conformite:nav-docked'
@@ -64,6 +65,8 @@ export default function Layout() {
   const [docked, setDocked] = useState(readDocked)
   const [flyout, setFlyout] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [guideRequested, setGuideRequested] = useState(false)
+  const closeGuide = useCallback(() => setGuideRequested(false), [])
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [colorMode, toggleColorMode] = useColorMode()
@@ -158,7 +161,7 @@ export default function Layout() {
           icon: 'user',
           items: [
             ...(can('admin') ? [{ to: '/utilisateurs', label: 'Utilisateurs', icon: 'user' as const }] : []),
-            ...(currentUser && currentUser.role !== 'contributeur'
+            ...(currentUser && (currentUser.role !== 'contributeur' || currentUser.isAdmin)
               ? [{ label: 'Vérifier le journal d’audit', icon: 'shield' as const, onClick: () => void verifyAudit() }]
               : []),
             { label: 'Export JSON des données', icon: 'download', onClick: () => state && exportBackup(state) },
@@ -173,7 +176,7 @@ export default function Layout() {
               label: 'Importer une sauvegarde',
               icon: 'upload',
               disabled: !can('admin'),
-              title: !can('admin') ? 'Réservé au responsable validant' : undefined,
+              title: !can('admin') ? 'Réservé à l’administrateur' : undefined,
               onClick: () => fileRef.current?.click(),
             },
             { label: 'Réinitialiser la démo', icon: 'refresh', onClick: () => setConfirmReset(true) },
@@ -187,7 +190,7 @@ export default function Layout() {
         <button className="icon-btn" onClick={toggleNav} aria-label={docked ? 'Réduire le menu' : 'Afficher le menu'} aria-expanded={docked || flyout} aria-controls="side-nav">
           <Icon name="menu" size={18} />
         </button>
-        <Link to="/" className="brand" aria-label="Accueil — Conformité ISO 27001">
+        <Link to="/" className="brand" aria-label="Accueil, Conformité ISO 27001">
           <span className="brand__title">
             Conformité<span className="brand__dot">.</span>
           </span>
@@ -199,6 +202,11 @@ export default function Layout() {
             </span>
           ))}
         </nav>
+        {status === 'ready' && (
+          <button className="icon-btn" onClick={() => setGuideRequested(true)} aria-label="Guide de démarrage" title="Guide de démarrage">
+            <Icon name="help" size={18} />
+          </button>
+        )}
         <button
           className="icon-btn"
           onClick={toggleColorMode}
@@ -211,7 +219,7 @@ export default function Layout() {
           <div className="user-menu">
             <div className="user-menu__who">
               <strong>{currentUser.name}</strong>
-              <span>{ROLES[currentUser.role].label}</span>
+              <span>{roleLabel(currentUser)}</span>
             </div>
             <Avatar user={currentUser} />
             <button className="btn btn--ghost btn--sm" onClick={() => void logout()}>
@@ -230,13 +238,13 @@ export default function Layout() {
               onChange={(e) => {
                 switchUser(e.target.value)
                 const u = state.users.find((x) => x.id === e.target.value)
-                if (u) notify(`Connecté en tant que ${u.name} (${ROLES[u.role].label}).`, 'info')
+                if (u) notify(`Connecté en tant que ${u.name} (${roleLabel(u)}).`, 'info')
               }}
               title="Simulation de connexion : changer d'utilisateur"
             >
               {state.users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} — {ROLES[u.role].label}
+                  {u.name} ({roleLabel(u)})
                 </option>
               ))}
             </select>
@@ -286,7 +294,13 @@ export default function Layout() {
       </aside>
 
       <div className="app-main">
-        {currentUser?.role === 'lecteur' && <div className="readonly-banner">Profil lecteur : consultation et export uniquement.</div>}
+        {currentUser?.role === 'lecteur' && (
+          <div className="readonly-banner">
+            {currentUser.isAdmin
+              ? 'Profil lecteur et administrateur : consultation, export et gestion des comptes.'
+              : 'Profil lecteur : consultation et export uniquement.'}
+          </div>
+        )}
         <main>
           {status === 'loading' && <LoadingPage />}
           {status === 'error' && (
@@ -308,6 +322,7 @@ export default function Layout() {
             </div>
           )}
           {status === 'ready' && <Outlet />}
+          {status === 'ready' && <Onboarding guideRequested={guideRequested} onGuideClosed={closeGuide} />}
         </main>
         {state && (
           <footer className="app-footer">

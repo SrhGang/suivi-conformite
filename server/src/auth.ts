@@ -35,6 +35,7 @@ export interface SessionUser {
   email: string
   name: string
   role: Role
+  isAdmin: boolean
 }
 
 declare module 'fastify' {
@@ -90,9 +91,10 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
       email: string
       name: string
       role: Role
+      is_admin: boolean
       disabled: boolean
     }>(
-      `SELECT s.id, s.stage, s.last_seen_at, s.expires_at, u.id AS user_id, u.email, u.name, u.role, u.disabled
+      `SELECT s.id, s.stage, s.last_seen_at, s.expires_at, u.id AS user_id, u.email, u.name, u.role, u.is_admin, u.disabled
        FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = $1`,
       [tokenId(token)],
     )
@@ -106,7 +108,7 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     }
     // Mise à jour de l'activité au plus une fois par minute.
     if (now - new Date(s.last_seen_at).getTime() > 60_000) await db.query('UPDATE sessions SET last_seen_at = now() WHERE id = $1', [s.id])
-    req.auth = { sessionId: s.id, stage: s.stage, id: s.user_id, email: s.email, name: s.name, role: s.role }
+    req.auth = { sessionId: s.id, stage: s.stage, id: s.user_id, email: s.email, name: s.name, role: s.role, isAdmin: s.is_admin }
   })
 
   const setStage = (sessionId: string, stage: Stage) => db.query('UPDATE sessions SET stage = $2 WHERE id = $1', [sessionId, stage])
@@ -164,8 +166,8 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
 
   app.get('/api/auth/me', async (req) => {
     if (!req.auth) return { ok: true, stage: null }
-    const { stage, id, email, name, role } = req.auth
-    return { ok: true, stage, user: { id, email, name, role } }
+    const { stage, id, email, name, role, isAdmin } = req.auth
+    return { ok: true, stage, user: { id, email, name, role, isAdmin } }
   })
 
   app.post('/api/auth/password', authRate, async (req, reply) => {
@@ -251,6 +253,16 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     clearSession(reply)
     return { ok: true }
   })
+}
+
+/** Garde : session complète d'un administrateur. */
+export function requireAdmin(req: FastifyRequest, reply: FastifyReply): SessionUser | null {
+  const a = requireFull(req, reply)
+  if (a && !a.isAdmin) {
+    reply.code(403).send({ ok: false, error: 'Réservé à l’administrateur.' })
+    return null
+  }
+  return a
 }
 
 /** Garde : session complète exigée (et rôle éventuel). */

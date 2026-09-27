@@ -1,5 +1,5 @@
 /**
- * Référentiel ISO/IEC 27001:2022 — Annexe A (93 mesures, 4 thèmes)
+ * Référentiel ISO/IEC 27001:2022, annexe A (93 mesures, 4 thèmes)
  * et correspondance indicative avec l'article 21.2 de la directive NIS2
  * (déclinée en France par l'ANSSI).
  *
@@ -16,18 +16,18 @@ export const THEMES: Theme[] = [
 ]
 
 export const NIS2_REQUIREMENTS: Nis2Requirement[] = [
-  { id: '20', label: 'Art. 20 — Gouvernance', description: "Approbation et supervision des mesures de gestion des risques par les organes de direction ; formation des dirigeants." },
-  { id: '21.2.a', label: 'Art. 21.2 a) — Analyse des risques', description: "Politiques relatives à l'analyse des risques et à la sécurité des systèmes d'information." },
-  { id: '21.2.b', label: 'Art. 21.2 b) — Gestion des incidents', description: 'Gestion des incidents.' },
-  { id: '21.2.c', label: 'Art. 21.2 c) — Continuité', description: "Continuité des activités, gestion des sauvegardes, reprise après sinistre et gestion des crises." },
-  { id: '21.2.d', label: "Art. 21.2 d) — Chaîne d'approvisionnement", description: "Sécurité de la chaîne d'approvisionnement, y compris les relations avec les fournisseurs." },
-  { id: '21.2.e', label: 'Art. 21.2 e) — Acquisition, développement, maintenance', description: "Sécurité de l'acquisition, du développement et de la maintenance des SI, y compris le traitement et la divulgation des vulnérabilités." },
-  { id: '21.2.f', label: 'Art. 21.2 f) — Évaluation de l’efficacité', description: "Politiques et procédures pour évaluer l'efficacité des mesures de gestion des risques." },
-  { id: '21.2.g', label: 'Art. 21.2 g) — Hygiène & formation', description: "Pratiques de base en matière de cyberhygiène et formation à la cybersécurité." },
-  { id: '21.2.h', label: 'Art. 21.2 h) — Cryptographie', description: 'Politiques et procédures relatives à la cryptographie et au chiffrement.' },
-  { id: '21.2.i', label: 'Art. 21.2 i) — RH, accès, actifs', description: "Sécurité des ressources humaines, politiques de contrôle d'accès et gestion des actifs." },
-  { id: '21.2.j', label: 'Art. 21.2 j) — MFA & communications sécurisées', description: "Authentification multifacteur ou continue, communications vocales, vidéo et textuelles sécurisées, communications d'urgence sécurisées." },
-  { id: '23', label: 'Art. 23 — Notification des incidents', description: "Obligations d'information (alerte précoce 24 h, notification 72 h, rapport final 1 mois)." },
+  { id: '20', label: 'Art. 20 : Gouvernance', description: "Approbation et supervision des mesures de gestion des risques par les organes de direction ; formation des dirigeants." },
+  { id: '21.2.a', label: 'Art. 21.2 a) Analyse des risques', description: "Politiques relatives à l'analyse des risques et à la sécurité des systèmes d'information." },
+  { id: '21.2.b', label: 'Art. 21.2 b) Gestion des incidents', description: 'Gestion des incidents.' },
+  { id: '21.2.c', label: 'Art. 21.2 c) Continuité', description: "Continuité des activités, gestion des sauvegardes, reprise après sinistre et gestion des crises." },
+  { id: '21.2.d', label: "Art. 21.2 d) Chaîne d'approvisionnement", description: "Sécurité de la chaîne d'approvisionnement, y compris les relations avec les fournisseurs." },
+  { id: '21.2.e', label: 'Art. 21.2 e) Acquisition, développement, maintenance', description: "Sécurité de l'acquisition, du développement et de la maintenance des SI, y compris le traitement et la divulgation des vulnérabilités." },
+  { id: '21.2.f', label: 'Art. 21.2 f) Évaluation de l’efficacité', description: "Politiques et procédures pour évaluer l'efficacité des mesures de gestion des risques." },
+  { id: '21.2.g', label: 'Art. 21.2 g) Hygiène & formation', description: "Pratiques de base en matière de cyberhygiène et formation à la cybersécurité." },
+  { id: '21.2.h', label: 'Art. 21.2 h) Cryptographie', description: 'Politiques et procédures relatives à la cryptographie et au chiffrement.' },
+  { id: '21.2.i', label: 'Art. 21.2 i) RH, accès, actifs', description: "Sécurité des ressources humaines, politiques de contrôle d'accès et gestion des actifs." },
+  { id: '21.2.j', label: 'Art. 21.2 j) MFA & communications sécurisées', description: "Authentification multifacteur ou continue, communications vocales, vidéo et textuelles sécurisées, communications d'urgence sécurisées." },
+  { id: '23', label: 'Art. 23 : Notification des incidents', description: "Obligations d'information (alerte précoce 24 h, notification 72 h, rapport final 1 mois)." },
 ]
 
 // [id, titre, exigences NIS2 associées]
@@ -158,5 +158,5 @@ export const suggestNis2 = (controlIds: string[] = []): Nis2Id[] => {
 
 export const controlLabel = (id: string): string => {
   const c = getControl(id)
-  return c ? `A.${c.id} — ${c.title}` : id
+  return c ? `A.${c.id} ${c.title}` : id
 }

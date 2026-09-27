@@ -128,14 +128,22 @@ docker compose up -d --build
 
 Les migrations de la base s'appliquent au démarrage de l'API.
 
-## 4. Créer le premier compte
+## 4. Créer le premier administrateur
 
 ```bash
-docker compose exec api node dist/cli.js create-user \
-  --email rssi@votre-domaine.fr --name "Prénom Nom" --role responsable
+docker compose exec api node dist/cli.js init --email admin@votre-domaine.fr --name "Prénom Nom"
 ```
 
-Le mot de passe temporaire s'affiche une seule fois. À la première connexion, il faut le changer (12 caractères minimum) puis activer la double authentification (FreeOTP, Aegis, Microsoft ou Google Authenticator…). Les comptes suivants se créent depuis la page **Administration › Utilisateurs**.
+La commande crée le compte **Administrateur** et refuse de s'exécuter si un administrateur existe déjà. Le mot de passe temporaire s'affiche une seule fois. À la première connexion, il faut le changer (12 caractères minimum) puis activer la double authentification (FreeOTP, Aegis, Microsoft ou Google Authenticator…).
+
+L'administrateur gère les comptes et les rôles. Par défaut, il n'a que la consultation côté métier (rôle lecteur) : c'est la séparation des tâches, celui qui gère les accès ne valide pas les corrections. Dans une petite équipe où la même personne fait les deux, ajoutez `--role responsable`.
+
+Ensuite, un assistant s'ouvre à la première connexion :
+1. nom et secteur de l'organisme ;
+2. données de départ : partir de zéro, ou d'une liste de lacunes courantes pour une entité NIS2, marquées « à confirmer » ;
+3. création des comptes de l'équipe dans **Administration › Utilisateurs**, avec leur rôle : responsable validant, contributeur ou lecteur, et éventuellement administrateur.
+
+En cas de perte d'accès de tous les administrateurs : `docker compose exec api node dist/cli.js grant-admin --email E`.
 
 ## 5. Sauvegardes
 

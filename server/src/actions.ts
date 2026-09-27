@@ -80,6 +80,7 @@ export const ACTIONS: Record<string, Handler> = {
   updateGap: action(z.tuple([id, gapInput.partial()]), A.updateGap),
   changeGapStatus: action(z.tuple([id, gapStatus, opt(text(2000))]), A.changeGapStatus),
   duplicateGap: action(z.tuple([id]), A.duplicateGap),
+  confirmGap: action(z.tuple([id]), A.confirmGap),
   archiveGap: action(z.tuple([id, opt(text(2000))]), (s, u, gapId, reason) => A.setArchived(s, u, gapId, true, reason)),
   restoreGap: action(z.tuple([id]), (s, u, gapId) => A.setArchived(s, u, gapId, false)),
   performReview: action(z.tuple([id, z.enum(['conforme', 'non_conforme']), opt(text(2000))]), A.performReview),

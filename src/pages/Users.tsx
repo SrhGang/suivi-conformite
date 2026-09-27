@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { usersApi, type ManagedUser } from '../api/http'
+import { setupApi, usersApi, type ManagedUser } from '../api/http'
 import { ConfirmDialog, EmptyState, Health, Modal } from '../components/ui'
-import { ROLES } from '../data/constants'
+import { OrganizationFields, RolesHelp } from '../components/admin'
+import { ADMIN_ROLE, ROLES } from '../data/constants'
 import { useCompliance } from '../store/ComplianceContext'
 import type { Role } from '../types'
 import { formatDateTime } from '../utils/dates'
 
 const ROLE_IDS: Role[] = ['responsable', 'contributeur', 'lecteur']
 
-/** Gestion des comptes (version production, responsable validant uniquement). */
+/** Gestion des comptes et de l'organisme (version production, administrateur uniquement). */
 export default function Users() {
-  const { can, currentUser, notify, mode } = useCompliance()
+  const { can, currentUser, notify, mode, state, refresh } = useCompliance()
   const [users, setUsers] = useState<ManagedUser[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
@@ -36,13 +37,13 @@ export default function Users() {
       <div className="page">
         <div className="card">
           <EmptyState icon="user" title="Accès réservé">
-            La gestion des comptes est réservée au responsable validant, dans la version connectée au serveur.
+            La gestion des comptes est réservée à l’administrateur, dans la version connectée au serveur.
           </EmptyState>
         </div>
       </div>
     )
 
-  const update = async (u: ManagedUser, changes: Partial<Pick<ManagedUser, 'role' | 'disabled'>>) => {
+  const update = async (u: ManagedUser, changes: Partial<Pick<ManagedUser, 'role' | 'disabled'> & { isAdmin: boolean }>) => {
     const res = await usersApi.update(u.id, changes).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
     if (!res.ok) return notify(res.error, 'error')
     notify(`Compte de ${u.name} mis à jour.`)
@@ -53,7 +54,7 @@ export default function Users() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Utilisateurs</h1>
+          <h1>Utilisateurs et rôles</h1>
           <p className="page-head__sub">
             Comptes, rôles et double authentification. Chaque modification est tracée dans le journal d’audit.
           </p>
@@ -71,6 +72,8 @@ export default function Users() {
         </div>
       )}
 
+      <RolesHelp />
+
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {!users ? (
           <p className="muted small" style={{ padding: 16 }}>
@@ -83,7 +86,8 @@ export default function Users() {
                 <tr>
                   <th>Nom</th>
                   <th>E-mail</th>
-                  <th>Rôle</th>
+                  <th>Rôle métier</th>
+                  <th>Administrateur</th>
                   <th>Sécurité</th>
                   <th>Dernière connexion</th>
                   <th>État</th>
@@ -112,7 +116,7 @@ export default function Users() {
                           style={{ width: 'auto', minHeight: 32, padding: '2px 8px' }}
                           value={u.role}
                           disabled={self}
-                          title={self ? 'Vous ne pouvez pas modifier votre propre rôle.' : undefined}
+                          title={self ? 'Vous ne pouvez pas modifier vos propres droits.' : undefined}
                           onChange={(e) => void update(u, { role: e.target.value as Role })}
                         >
                           {ROLE_IDS.map((r) => (
@@ -121,6 +125,13 @@ export default function Users() {
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td>
+                        <label className="toggle" title={self ? 'Vous ne pouvez pas modifier vos propres droits.' : undefined}>
+                          <input type="checkbox" checked={u.is_admin} disabled={self} onChange={(e) => void update(u, { isAdmin: e.target.checked })} />
+                          <span className="sr-only">Administrateur : {u.name}</span>
+                          <span aria-hidden="true">{u.is_admin ? 'Oui' : 'Non'}</span>
+                        </label>
                       </td>
                       <td className="small">
                         {u.must_change_password ? (
@@ -131,7 +142,7 @@ export default function Users() {
                           <Health tone="warning">MFA à configurer</Health>
                         )}
                       </td>
-                      <td className="small nowrap">{u.last_login_at ? formatDateTime(u.last_login_at) : '—'}</td>
+                      <td className="small nowrap">{u.last_login_at ? formatDateTime(u.last_login_at) : 'Jamais'}</td>
                       <td className="small">
                         {u.disabled ? <Health tone="neutral">Désactivé</Health> : u.locked ? <Health tone="error">Verrouillé</Health> : <Health tone="success">Actif</Health>}
                       </td>
@@ -155,6 +166,14 @@ export default function Users() {
           </div>
         )}
       </div>
+
+      <OrganizationCard
+        organization={state.organization}
+        onSaved={async () => {
+          await refresh()
+          notify('Informations de l’organisme enregistrées.')
+        }}
+      />
 
       {creating && (
         <CreateUserDialog
@@ -189,7 +208,7 @@ export default function Users() {
 }
 
 function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (name: string, password: string) => void }) {
-  const [form, setForm] = useState({ email: '', name: '', title: '', role: 'contributeur' as Role })
+  const [form, setForm] = useState({ email: '', name: '', title: '', role: 'contributeur' as Role, isAdmin: false })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -234,6 +253,13 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           </select>
           <span className="hint">{ROLES[form.role].description}</span>
         </div>
+        <div className="field">
+          <label className="toggle">
+            <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} />
+            {ADMIN_ROLE.label}
+          </label>
+          <span className="hint">{ADMIN_ROLE.description}</span>
+        </div>
         <div className="form-actions">
           <button type="button" className="btn btn--secondary" onClick={onClose}>
             Annuler
@@ -244,6 +270,41 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
       </form>
     </Modal>
+  )
+}
+
+function OrganizationCard({ organization, onSaved }: { organization: { name: string; sector: string }; onSaved: () => Promise<void> }) {
+  const [form, setForm] = useState(organization)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const dirty = form.name !== organization.name || form.sector !== organization.sector
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    const res = await setupApi.saveOrganization(form).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
+    setBusy(false)
+    if (!res.ok) return setError(res.error)
+    setError(null)
+    await onSaved()
+  }
+
+  return (
+    <form className="card" onSubmit={submit} style={{ marginTop: 16 }}>
+      <h2 className="card__title">Organisme</h2>
+      {error && (
+        <div className="banner banner--error" role="alert">
+          {error}
+        </div>
+      )}
+      <OrganizationFields value={form} onChange={setForm} />
+      <div className="form-actions">
+        <button type="submit" className="btn btn--primary" disabled={busy || !dirty}>
+          Enregistrer
+        </button>
+      </div>
+    </form>
   )
 }
 

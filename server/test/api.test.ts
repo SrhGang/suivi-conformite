@@ -48,7 +48,7 @@ class Client {
     private readonly origin = ORIGIN,
     private readonly ip = '127.0.0.1',
   ) {}
-  async req(method: 'GET' | 'POST' | 'PATCH', url: string, body?: unknown, headers: Record<string, string> = {}) {
+  async req(method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, body?: unknown, headers: Record<string, string> = {}) {
     const res = await app.inject({
       method,
       url,
@@ -71,10 +71,10 @@ const totpCode = (secret: string, offset = 0) =>
     timestamp: Date.now() + offset * 30_000,
   })
 
-async function createUser(id: string, email: string, role: string, password = 'Mot-de-passe-initial-42') {
+async function createUser(id: string, email: string, role: string, isAdmin = false, password = 'Mot-de-passe-initial-42') {
   await admin.query(
-    `INSERT INTO users (id, email, name, initials, title, role, password_hash, must_change_password) VALUES ($1, $2, $3, 'XX', '', $4, $5, true)`,
-    [id, email, `Utilisateur ${id}`, role, await hashPassword(password)],
+    `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password) VALUES ($1, $2, $3, 'XX', '', $4, $5, $6, true)`,
+    [id, email, `Utilisateur ${id}`, role, isAdmin, await hashPassword(password)],
   )
 }
 
@@ -97,6 +97,7 @@ const run = ADMIN_URL && APP_URL ? describe : describe.skip
 run('API (PostgreSQL)', () => {
   let resp: Client
   let contrib: Client
+  let adm: Client
   let respSecret = ''
 
   beforeAll(async () => {
@@ -108,8 +109,11 @@ run('API (PostgreSQL)', () => {
     await createUser('u_resp', 'rssi@test.fr', 'responsable')
     await createUser('u_contrib', 'admin.sys@test.fr', 'contributeur')
     await createUser('u_lect', 'auditeur@test.fr', 'lecteur')
+    // Administrateur sans droit métier (séparation des tâches).
+    await createUser('u_admin', 'admin@test.fr', 'lecteur', true)
     ;({ client: resp, secret: respSecret } = await onboard('rssi@test.fr'))
     ;({ client: contrib } = await onboard('admin.sys@test.fr'))
+    ;({ client: adm } = await onboard('admin@test.fr'))
   })
 
   afterAll(async () => {
@@ -151,6 +155,36 @@ run('API (PostgreSQL)', () => {
     expect(res.status).toBe(403)
   })
 
+  it('première installation : organisme, données de départ à confirmer, fin de l’assistant', async () => {
+    const before = await adm.req('GET', '/api/state')
+    expect(before.json.state.setupPending).toBe(true)
+    expect(before.json.state.users.find((u: { id: string }) => u.id === 'u_admin').isAdmin).toBe(true)
+    // Réservé à l'administrateur, même pour un responsable validant.
+    expect((await resp.req('PUT', '/api/organization', { name: 'Pirate', sector: '' })).status).toBe(403)
+    expect((await resp.req('POST', '/api/setup/starter', {})).status).toBe(403)
+
+    expect((await adm.req('PUT', '/api/organization', { name: 'Régie des eaux', sector: 'Eau potable' })).status).toBe(200)
+    const starter = await adm.req('POST', '/api/setup/starter', {})
+    expect(starter.status).toBe(200)
+    const gaps = starter.json.state.gaps as { id: string; toConfirm?: boolean; assignee: string }[]
+    expect(gaps.length).toBe(starter.json.result)
+    expect(gaps.every((g) => g.toConfirm && g.assignee === '')).toBe(true)
+    // Base non vide : second chargement refusé.
+    expect((await adm.req('POST', '/api/setup/starter', {})).status).toBe(400)
+
+    // Un contributeur confirme une lacune de départ ; l'administrateur (lecteur) ne peut pas.
+    expect((await adm.action('confirmGap', gaps[0]!.id)).status).toBe(400)
+    const confirmed = await contrib.action('confirmGap', gaps[0]!.id)
+    expect(confirmed.json.result.toConfirm).toBeUndefined()
+
+    expect((await adm.req('POST', '/api/setup/complete', {})).status).toBe(200)
+    const after = await resp.req('GET', '/api/state')
+    expect(after.json.state.setupPending).toBeUndefined()
+    expect(after.json.state.organization.name).toBe('Régie des eaux')
+    const actions = after.json.state.history.map((h: { action: string }) => h.action)
+    expect(actions).toEqual(expect.arrayContaining(['Organisme modifié', 'Confirmation', 'Installation terminée']))
+  })
+
   let gapId = ''
 
   it('crée une lacune, une remédiation et une preuve, puis valide', async () => {
@@ -162,12 +196,12 @@ run('API (PostgreSQL)', () => {
     })
     expect(created.status).toBe(200)
     gapId = created.json.result.id
-    expect(gapId).toBe('GAP-001')
-    expect(created.json.state.gaps[0].nis2Refs).toEqual(['21.2.i', '21.2.j'])
+    const gapOf = (st: { gaps: { id: string; nis2Refs: string[]; status: string }[] }) => st.gaps.find((g) => g.id === gapId)!
+    expect(gapOf(created.json.state).nis2Refs).toEqual(['21.2.i', '21.2.j'])
 
     const rem = await contrib.action('addRemediation', gapId, { title: 'Bastion MFA', type: 'outil', targetDate: '2026-12-31' })
     expect(rem.json.result.id).toBe('IMP-001')
-    expect(rem.json.state.gaps[0].status).toBe('en_cours')
+    expect(gapOf(rem.json.state).status).toBe('en_cours')
 
     // Le contributeur ne peut pas valider.
     const denied = await contrib.action('changeGapStatus', gapId, 'validee', 'OK')
@@ -217,14 +251,26 @@ run('API (PostgreSQL)', () => {
     expect(res.json.error).toMatch(/rôle/)
   })
 
-  it('gère les comptes (responsable uniquement) et journalise', async () => {
+  it('gère les comptes (administrateur uniquement) et journalise', async () => {
     expect((await contrib.req('GET', '/api/users')).status).toBe(403)
-    const created = await resp.req('POST', '/api/users', { email: 'dpo@test.fr', name: 'Déborah Po', role: 'contributeur' })
+    expect((await resp.req('GET', '/api/users')).status).toBe(403) // responsable non administrateur
+    const created = await adm.req('POST', '/api/users', { email: 'dpo@test.fr', name: 'Déborah Po', role: 'contributeur' })
     expect(created.json.temporaryPassword).toHaveLength(18)
-    const last = await resp.req('PATCH', '/api/users/u_resp', { role: 'lecteur' })
-    expect(last.status).toBe(400) // dernier responsable actif
-    const state = await resp.req('GET', '/api/state')
-    expect(state.json.state.history.some((h: { action: string }) => h.action === 'Compte créé')).toBe(true)
+    const second = await adm.req('POST', '/api/users', { email: 'dsi@test.fr', name: 'Denis Si', role: 'responsable', isAdmin: true })
+    expect(second.status).toBe(200)
+    // Un administrateur ne modifie pas ses propres droits.
+    expect((await adm.req('PATCH', '/api/users/u_admin', { role: 'responsable' })).status).toBe(400)
+    expect((await adm.req('PATCH', '/api/users/u_admin', { isAdmin: false })).status).toBe(400)
+    // Il attribue les rôles des autres.
+    expect((await adm.req('PATCH', '/api/users/u_lect', { role: 'contributeur' })).status).toBe(200)
+    expect((await adm.req('PATCH', `/api/users/${second.json.id}`, { isAdmin: false })).status).toBe(200)
+    const list = await adm.req('GET', '/api/users')
+    const dsi = list.json.users.find((u: { email: string }) => u.email === 'dsi@test.fr')
+    expect(dsi.is_admin).toBe(false)
+    const state = await adm.req('GET', '/api/state')
+    const details = state.json.state.history.map((h: { details: string }) => h.details).join('\n')
+    expect(details).toMatch(/Denis Si <dsi@test.fr>, rôle responsable \+ administrateur/)
+    expect(details).toMatch(/administrateur retiré/)
   })
 
   it('verrouille le compte après 5 échecs', async () => {

@@ -1,4 +1,4 @@
-/* Styles de l'application — design inspiré du tableau de bord Wazuh 4.8+
+/* Styles de l'application : design inspiré du tableau de bord Wazuh 4.8+
    (OpenSearch Dashboards, thème clair OUI). Tous les tons viennent des jetons
    de design-system.css. */
 
@@ -2391,4 +2391,129 @@ details.help ul {
   .user-menu__who {
     display: none;
   }
+}
+
+/* Accueil : assistant d'installation et guide de démarrage */
+.form-actions {
+  flex-wrap: wrap;
+}
+.stepper {
+  display: flex;
+  gap: var(--space-base);
+  list-style: none;
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  flex-wrap: wrap;
+  font-size: var(--font-size-small);
+  color: var(--text-subdued);
+}
+.stepper li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.stepper__num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-weight: var(--font-weight-semibold);
+}
+.stepper li.is-current {
+  color: var(--text-title);
+  font-weight: var(--font-weight-semibold);
+}
+.stepper li.is-current .stepper__num {
+  background: var(--primary-800);
+  border-color: var(--primary-800);
+  color: var(--on-solid);
+}
+.stepper li.is-done .stepper__num {
+  border-color: var(--success);
+  color: var(--success);
+}
+.choice-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+.choice {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+  padding: var(--space-md) var(--space-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--panel-bg);
+}
+.choice > span {
+  display: grid;
+  gap: var(--space-xs);
+}
+.choice input {
+  margin-top: 3px;
+  accent-color: var(--primary-800);
+}
+.choice.is-selected {
+  border-color: var(--primary-800);
+  background: var(--primary-50);
+}
+.choice.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.roles-help {
+  margin-bottom: var(--space-base);
+}
+.roles-help__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin: var(--space-sm) 0 0;
+}
+.roles-help__list dt {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-title);
+}
+.roles-help__list dd {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-small);
+  color: var(--text-subdued);
+}
+.guide__title {
+  font-size: var(--font-size-h3);
+  color: var(--text-title);
+  margin-bottom: var(--space-sm);
+}
+.guide__body p + p {
+  margin-top: var(--space-sm);
+}
+.guide-flow {
+  margin: var(--space-sm) 0 0;
+  padding-left: 1.4em;
+}
+.guide-pages dt {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-title);
+  margin-top: var(--space-sm);
+}
+.guide-pages dd {
+  margin: 2px 0 0;
+}
+.guide__dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+.guide__dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neutral-200);
+}
+.guide__dots span.is-current {
+  background: var(--primary-800);
 }

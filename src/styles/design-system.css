@@ -1,6 +1,6 @@
 /**
- * SYSTÈME DE DESIGN — Suivi de Conformité ISO 27001 / NIS2-ANSSI
- * Version 2 — inspirée du tableau de bord Wazuh 4.8+ (OpenSearch Dashboards,
+ * SYSTÈME DE DESIGN : Suivi de Conformité ISO 27001 / NIS2-ANSSI
+ * Version 2 : inspirée du tableau de bord Wazuh 4.8+ (OpenSearch Dashboards,
  * thèmes clair et sombre OUI/EUI) : palette neutre bleutée, bleu primaire
  * #006BB8 (#1BA9F5 en sombre), couleurs de statut Wazuh, police Inter en
  * 14 px, panneaux à bordure fine. Le thème sombre s'active avec
@@ -39,7 +39,7 @@
   --secondary-500: #98a2b3;
 
   /* ========================================
-     STATUTS — valeurs UI_COLOR_STATUS de Wazuh
+     STATUTS : valeurs UI_COLOR_STATUS de Wazuh
      ======================================== */
   --success: #007871;
   --success-light: #e6f1f0;
@@ -53,7 +53,7 @@
   --not-applicable: #b9a888;
 
   /* ========================================
-     SÉVÉRITÉS (criticité des lacunes) — même
+     SÉVÉRITÉS (criticité des lacunes) : même
      logique que les sévérités de vulnérabilités
      ======================================== */
   --severity-critical: #bd271e;
@@ -64,14 +64,14 @@
   /* ========================================
      NEUTRES (OUI light shades)
      ======================================== */
-  --neutral-50: #f5f7fa; /* lightestShade — fond de page, survol de ligne */
+  --neutral-50: #f5f7fa; /* lightestShade : fond de page, survol de ligne */
   --neutral-100: #eef2f7;
-  --neutral-200: #d3dae6; /* lightShade — bordures, séparateurs */
+  --neutral-200: #d3dae6; /* lightShade : bordures, séparateurs */
   --neutral-300: #c2cad6;
   --neutral-400: #98a2b3; /* mediumShade */
-  --neutral-500: #69707d; /* darkShade — texte secondaire */
+  --neutral-500: #69707d; /* darkShade : texte secondaire */
   --neutral-600: #535966;
-  --neutral-700: #343741; /* darkestShade — texte courant */
+  --neutral-700: #343741; /* darkestShade : texte courant */
   --neutral-800: #343741;
   --neutral-900: #1a1c21; /* titres */
 
@@ -133,16 +133,16 @@
   --space-6xl: 80px;
 
   /* ========================================
-     TYPOGRAPHIE — Inter / Roboto Mono, base 14 px
+     TYPOGRAPHIE : Inter / Roboto Mono, base 14 px
      ======================================== */
   --font-family-system: 'Inter', 'Inter UI', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-family-mono: 'Roboto Mono', Menlo, Courier, monospace;
 
-  --font-size-h1: 1.5rem; /* 24px — titre de page */
+  --font-size-h1: 1.5rem; /* 24px : titre de page */
   --font-size-h2: 1.25rem; /* 20px */
-  --font-size-h3: 1rem; /* 16px — titre de panneau */
+  --font-size-h3: 1rem; /* 16px : titre de panneau */
   --font-size-subtitle: 1rem;
-  --font-size-body: 0.875rem; /* 14px — texte courant EUI */
+  --font-size-body: 0.875rem; /* 14px : texte courant EUI */
   --font-size-body-small: 0.875rem;
   --font-size-small: 0.8125rem; /* 13px */
   --font-size-tiny: 0.75rem; /* 12px */
@@ -165,7 +165,7 @@
   --letter-spacing-wider: 0.06em;
 
   /* ========================================
-     RAYONS — légers, comme EUI
+     RAYONS : légers, comme EUI
      ======================================== */
   --radius-sm: 2px;
   --radius-md: 4px;
@@ -194,7 +194,7 @@
 }
 
 /* ========================================
-   THÈME SOMBRE — palette OUI « dark » du tableau de bord Wazuh
+   THÈME SOMBRE : palette OUI « dark » du tableau de bord Wazuh
    ======================================== */
 :root[data-color-mode='dark'] {
   color-scheme: dark;

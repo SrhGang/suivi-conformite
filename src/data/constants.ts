@@ -68,7 +68,7 @@ export const EVIDENCE_TYPES: Labelled<EvidenceTypeId>[] = [
 export const ROLES: Record<Role, { label: string; description: string }> = {
   responsable: {
     label: 'Responsable validant',
-    description: 'Tous les droits, y compris valider les lacunes, archiver et effectuer les revues périodiques.',
+    description: 'Droits du contributeur, plus la validation des lacunes, l’archivage et les revues périodiques.',
   },
   contributeur: {
     label: 'Contributeur',
@@ -79,6 +79,16 @@ export const ROLES: Record<Role, { label: string; description: string }> = {
     description: 'Consultation et export uniquement.',
   },
 }
+
+/** Rôle d'administration, distinct des rôles métier (séparation des tâches, ISO 27001 A.5.3). */
+export const ADMIN_ROLE = {
+  label: 'Administrateur',
+  description: 'Gère les comptes, les rôles et les informations de l’organisme. Se cumule avec un rôle métier.',
+}
+
+/** Libellé complet : rôle métier, suivi de « administrateur » le cas échéant. */
+export const roleLabel = (user: { role: Role; isAdmin?: boolean }): string =>
+  user.isAdmin ? `${ROLES[user.role].label}, administrateur` : ROLES[user.role].label
 
 export const PAGE_SIZE = 20
 

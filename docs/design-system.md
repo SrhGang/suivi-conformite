@@ -1,4 +1,4 @@
-# Design system v2 — inspiré du tableau de bord Wazuh
+# Design system v2, inspiré du tableau de bord Wazuh
 
 La v2 du design system reprend les codes visuels du tableau de bord Wazuh 4.8 et suivants. Ce tableau de bord est basé sur OpenSearch Dashboards et utilise le thème clair de la bibliothèque de composants OUI (dérivée d'EUI). Les jetons sont définis dans `src/styles/design-system.css`, et les composants dans `src/styles/app.css`.
 

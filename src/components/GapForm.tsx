@@ -7,16 +7,16 @@ import type { CriticalityId, FieldErrors, Gap, GapInput, Nis2Id } from '../types
 import { Modal } from './ui'
 
 const ANSSI_SUGGESTIONS = [
-  "ANSSI — Guide d'hygiène informatique",
-  "ANSSI — Recommandations relatives à l'authentification multifacteur et aux mots de passe",
-  "ANSSI — Recommandations relatives à l'administration sécurisée des SI",
-  'ANSSI — Recommandations de sécurité pour la mise en œuvre d’un système de journalisation',
-  'ANSSI — Fondamentaux de la sauvegarde des systèmes d’information',
-  'ANSSI — Méthode EBIOS Risk Manager',
-  'ANSSI — Cybersécurité des systèmes industriels : mesures détaillées',
-  'ANSSI — Recommandations de sécurité relatives à TLS',
-  "ANSSI — Maîtriser les risques de l'infogérance",
-  'ANSSI — Référentiel des mesures de sécurité NIS2',
+  "ANSSI : Guide d'hygiène informatique",
+  "ANSSI : Recommandations relatives à l'authentification multifacteur et aux mots de passe",
+  "ANSSI : Recommandations relatives à l'administration sécurisée des SI",
+  'ANSSI : Recommandations de sécurité pour la mise en œuvre d’un système de journalisation',
+  'ANSSI : Fondamentaux de la sauvegarde des systèmes d’information',
+  'ANSSI : Méthode EBIOS Risk Manager',
+  'ANSSI : Cybersécurité des systèmes industriels : mesures détaillées',
+  'ANSSI : Recommandations de sécurité relatives à TLS',
+  "ANSSI : Maîtriser les risques de l'infogérance",
+  'ANSSI : Référentiel des mesures de sécurité NIS2',
 ]
 
 /** Délai par défaut (jours) selon la criticité. */
@@ -131,7 +131,7 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
             {filtered.map((t) => (
               <div key={t.id}>
                 <div className="checklist__group">
-                  {t.code} — {t.label}
+                  {t.code} : {t.label}
                 </div>
                 {t.controls.map((c) => (
                   <label key={c.id}>
@@ -201,7 +201,7 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
             <select id="gap-assignee" className="input" value={form.assignee} onChange={(e) => set('assignee', e.target.value)}>
               {state.users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} — {u.title}
+                  {u.name} ({u.title})
                 </option>
               ))}
             </select>

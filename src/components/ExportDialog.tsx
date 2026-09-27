@@ -35,7 +35,7 @@ export default function ExportDialog() {
   }
 
   return (
-    <Modal title={`Export — ${file.filename}`} onClose={() => setFile(null)}>
+    <Modal title={`Export : ${file.filename}`} onClose={() => setFile(null)}>
       <p className="small" style={{ marginBottom: 12 }}>
         Le téléchargement n'est pas disponible dans la version en ligne. Copiez le contenu puis collez-le dans un fichier nommé <strong className="mono">{file.filename}</strong>.
       </p>

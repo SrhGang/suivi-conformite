@@ -67,7 +67,7 @@ export function Progress({ value, label = true, success }: { value: number; labe
 export function Avatar({ user, size }: { user: User | null | undefined; size?: 'sm' }) {
   if (!user) return null
   return (
-    <span className={`avatar ${size === 'sm' ? 'avatar--sm' : ''}`} title={`${user.name} — ${user.title}`}>
+    <span className={`avatar ${size === 'sm' ? 'avatar--sm' : ''}`} title={user.title ? `${user.name} (${user.title})` : user.name}>
       {user.initials}
     </span>
   )
@@ -76,7 +76,7 @@ export function Avatar({ user, size }: { user: User | null | undefined; size?: '
 export function UserName({ id, withAvatar }: { id: string; withAvatar?: boolean }) {
   const { state } = useCompliance()
   const u = state.users.find((x) => x.id === id)
-  if (!u) return <span className="muted">—</span>
+  if (!u) return <span className="muted">Non assigné</span>
   if (!withAvatar) return <span>{u.name}</span>
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

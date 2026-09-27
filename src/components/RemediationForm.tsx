@@ -59,7 +59,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
     onClose()
   }
 
-  const title = remediation ? `${remediation.id} — ${readOnly ? 'Détail' : 'Modifier'}` : 'Nouvelle remédiation'
+  const title = remediation ? `${remediation.id} : ${readOnly ? 'détail' : 'modification'}` : 'Nouvelle remédiation'
   return (
     <Modal title={title} onClose={onClose}>
       <form onSubmit={submit} noValidate>
@@ -68,10 +68,10 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
             <div className="field">
               <label htmlFor="rem-gap">Lacune concernée *</label>
               <select id="rem-gap" className={`input ${errors.gapId ? 'input--error' : ''}`} value={form.gapId} onChange={(e) => set('gapId', e.target.value)}>
-                <option value="">— Sélectionner —</option>
+                <option value="">Sélectionner une lacune</option>
                 {openGaps.map((g) => (
                   <option key={g.id} value={g.id}>
-                    {g.id} — {g.title}
+                    {g.id} : {g.title}
                   </option>
                 ))}
               </select>
@@ -80,7 +80,7 @@ export default function RemediationForm({ remediation, gapId, onClose, showGapLi
           ) : (
             showGapLink && (
               <p className="small" style={{ marginBottom: 16 }}>
-                Lacune : <Link to={`/lacunes/${form.gapId}`}>{form.gapId} — {state.gaps.find((g) => g.id === form.gapId)?.title}</Link>
+                Lacune : <Link to={`/lacunes/${form.gapId}`}>{form.gapId} : {state.gaps.find((g) => g.id === form.gapId)?.title}</Link>
               </p>
             )
           )}

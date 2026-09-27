@@ -83,7 +83,7 @@ export default function Roadmap() {
     done: all.filter((r) => r.status === 'valide').length,
   }
 
-  // Période affichée (Gantt) — de 1 mois avant aujourd'hui jusqu'à N mois après.
+  // Période affichée (Gantt) : de 1 mois avant aujourd'hui jusqu'à N mois après.
   const range = useMemo<DateRange>(() => {
     const p = PERIODS.find((x) => x.id === period) ?? PERIODS[1]
     if (p.months) return { start: addMonths(today(), -1), end: addDays(addMonths(today(), p.months), 21) }
@@ -317,7 +317,7 @@ function Gantt({ items, gapIndex, range, focus, sortDir, onSort, onOpen }: Gantt
               {state.milestones
                 .filter((m) => m.date >= range.start && m.date <= range.end)
                 .map((m) => (
-                  <div key={m.id} className={`milestone-flag ${milestoneState(m)}`} style={pct(m.date) > 80 ? { left: `${pct(m.date)}%`, transform: 'translateX(calc(-100% + 9px))', flexDirection: 'row-reverse' } : { left: `${pct(m.date)}%` }} title={`${m.label} — objectif ${m.target} % le ${formatDate(m.date)} (actuel : ${score} %)`}>
+                  <div key={m.id} className={`milestone-flag ${milestoneState(m)}`} style={pct(m.date) > 80 ? { left: `${pct(m.date)}%`, transform: 'translateX(calc(-100% + 9px))', flexDirection: 'row-reverse' } : { left: `${pct(m.date)}%` }} title={`${m.label} : objectif ${m.target} % le ${formatDate(m.date)} (actuel : ${score} %)`}>
                     <span className="diamond" />
                     {m.target} % · {formatDate(m.date)}
                   </div>
