@@ -41,6 +41,8 @@ export interface ComplianceApi {
   updateGap: (id: string, changes: Partial<GapInput>) => Async<Gap>
   changeGapStatus: (id: string, status: GapStatusId, comment?: string) => Async<Gap>
   duplicateGap: (id: string) => Async<Gap>
+  /** Confirme une lacune issue des données de départ. */
+  confirmGap: (id: string) => Async<Gap>
   archiveGap: (id: string, reason?: string) => Async<Gap>
   restoreGap: (id: string) => Async<Gap>
   performReview: (id: string, outcome: ReviewOutcome, comment?: string) => Async<Gap>
@@ -60,6 +62,8 @@ export interface ComplianceApi {
   /** Démo uniquement. */
   importData: (data: unknown) => void
   retry: () => void
+  /** Recharge l'état depuis le serveur sans écran de chargement (mode API). */
+  refresh: () => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -130,6 +134,7 @@ const LOCAL_ACTIONS = {
   updateGap: actions.updateGap,
   changeGapStatus: actions.changeGapStatus,
   duplicateGap: actions.duplicateGap,
+  confirmGap: actions.confirmGap,
   archiveGap: (s: ComplianceState, u: User, id: string, reason?: string) => actions.setArchived(s, u, id, true, reason),
   restoreGap: (s: ComplianceState, u: User, id: string) => actions.setArchived(s, u, id, false),
   performReview: actions.performReview,
@@ -313,6 +318,7 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
       updateGap: (id, changes) => run('updateGap', id, changes),
       changeGapStatus: (id, st, comment) => run('changeGapStatus', id, st, comment),
       duplicateGap: (id) => run('duplicateGap', id),
+      confirmGap: (id) => run('confirmGap', id),
       archiveGap: (id, reason) => run('archiveGap', id, reason),
       restoreGap: (id) => run('restoreGap', id),
       performReview: (id, outcome, comment) => run('performReview', id, outcome, comment),
@@ -338,9 +344,14 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
         commitLocal({ ...data, lastUpdated: new Date().toISOString() })
       },
       retry: load,
+      refresh: async () => {
+        if (!USE_API) return
+        const s = await guard(fetchRemoteState, null)
+        if (s) apply(s)
+      },
       logout,
     }),
-    [run, uploadEvidence, commitLocal, load, logout],
+    [run, uploadEvidence, commitLocal, load, logout, guard, fetchRemoteState, apply],
   )
 
   const value: ShellValue = {

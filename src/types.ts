@@ -63,6 +63,8 @@ export interface User {
   initials: string
   title: string
   role: Role
+  /** Administrateur : gère les comptes, les rôles et l'organisme. Se cumule avec le rôle métier. */
+  isAdmin?: boolean
 }
 
 export interface Organization {
@@ -104,6 +106,8 @@ export interface Gap {
   validation: Validation | null
   nextReviewDate: ISODate | null
   reviews: Review[]
+  /** Lacune issue des données de départ : à confirmer (ou archiver) par l'organisme. */
+  toConfirm?: boolean
 }
 
 export interface Remediation {
@@ -170,6 +174,8 @@ export interface ComplianceState {
   milestones: Milestone[]
   counters: Counters
   lastUpdated: ISODateTime
+  /** Version serveur : l'assistant de première installation n'est pas encore terminé. */
+  setupPending?: boolean
 }
 
 /** Saisie du formulaire de lacune (création ou modification). */

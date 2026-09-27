@@ -146,7 +146,7 @@ export default function Referentiel() {
         return (
           <section key={t.id} style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 12 }}>
-              {t.code} — {t.label} <span className="small muted">({list.length})</span>
+              {t.code} : {t.label} <span className="small muted">({list.length})</span>
             </h3>
             <div className="control-grid">
               {list.map((c) => {

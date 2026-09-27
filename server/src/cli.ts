@@ -1,18 +1,24 @@
 /**
  * Outils d'administration :
  *   migrate                                   applique les migrations
- *   create-user --email E --name N --role R [--title T]
+ *   init --email E --name N [--role R] [--title T]
+ *                                             crée le premier administrateur (refusé s'il en existe déjà un)
+ *   create-user --email E --name N --role R [--title T] [--admin]
  *                                             crée un compte (mot de passe temporaire affiché une fois)
+ *   grant-admin --email E                     rend un compte administrateur (secours)
  *   verify-history                            vérifie le chaînage du journal d'audit
- *   seed-demo                                 charge les données de démonstration (base vide uniquement)
+ *   seed-demo                                 charge les données de démonstration (base vide, instance de test)
+ *
+ * Rôles métier (R) : responsable, contributeur, lecteur. Le rôle administrateur
+ * (gestion des comptes) se cumule avec un rôle métier.
  */
 import { buildDemoData } from '../../src/data/demoData'
 import type { ComplianceState, Role } from '../../src/types'
 import { adminDatabaseUrl } from './config'
 import { WRITE_LOCK_KEY, createPool, migrate, withTx } from './db'
-import { verifyHistory } from './history'
+import { logEvent, verifyHistory } from './history'
 import { hashPassword, initialsOf, newId, temporaryPassword } from './security'
-import { ensureOrganization, loadState, persistChanges } from './state'
+import { completeSetup, ensureOrganization, loadState, persistChanges } from './state'
 
 const [command, ...rest] = process.argv.slice(2)
 
@@ -27,6 +33,42 @@ const need = (name: string): string => {
   return v
 }
 
+const has = (name: string): boolean => rest.includes(`--${name}`)
+
+const ROLE_IDS: Role[] = ['responsable', 'contributeur', 'lecteur']
+const roleOption = (fallback?: Role): Role => {
+  const role = (flag('role') ?? fallback) as Role | undefined
+  if (!role || !ROLE_IDS.includes(role)) throw new Error('Rôle invalide : responsable, contributeur ou lecteur.')
+  return role
+}
+
+/** Crée un compte avec un mot de passe temporaire et journalise l'opération. */
+async function insertUser(email: string, name: string, role: Role, isAdmin: boolean, onlyIfNoAdmin = false): Promise<string> {
+  const temp = temporaryPassword()
+  const id = newId('usr')
+  const db = createPool(dbUrl())
+  try {
+    await withTx(db, async (tx) => {
+      await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+      if (onlyIfNoAdmin) {
+        const admins = Number((await tx.query<{ n: string }>('SELECT count(*) AS n FROM users WHERE is_admin')).rows[0]?.n ?? 0)
+        if (admins > 0) throw new Error('Un administrateur existe déjà. Utilisez create-user, ou grant-admin en cas de perte d’accès.')
+      }
+      await tx.query(
+        `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+        [id, email, name, initialsOf(name), flag('title') ?? '', role, isAdmin, await hashPassword(temp)],
+      )
+      await logEvent(tx, id, 'Compte créé', `${name} <${email}>, rôle ${role}${isAdmin ? ' + administrateur' : ''} (ligne de commande)`)
+    })
+  } catch (e) {
+    if ((e as { code?: string }).code === '23505') throw new Error('Un compte existe déjà pour cet e-mail.')
+    throw e
+  } finally {
+    await db.end()
+  }
+  return temp
+}
+
 const dbUrl = adminDatabaseUrl
 
 async function main() {
@@ -37,24 +79,50 @@ async function main() {
       return
     }
 
-    case 'create-user': {
-      const role = need('role') as Role
-      if (!['responsable', 'contributeur', 'lecteur'].includes(role)) throw new Error('Rôle invalide (responsable, contributeur ou lecteur).')
+    case 'init': {
       const email = need('email')
       const name = need('name')
-      const temp = temporaryPassword()
+      // Séparation des tâches : par défaut l'administrateur n'a que la consultation.
+      const role = roleOption('lecteur')
+      const temp = await insertUser(email, name, role, true, true)
+      const origin = process.env.PUBLIC_ORIGIN
+      console.log(`Administrateur créé : ${name} <${email}>, rôle métier ${role}.`)
+      console.log(`Mot de passe temporaire (affiché une seule fois) : ${temp}`)
+      console.log('')
+      console.log('Étapes suivantes :')
+      console.log(`  1. Connectez-vous${origin ? ` sur ${origin}` : ''}, changez le mot de passe et activez la double authentification.`)
+      console.log('  2. L’assistant d’installation demande le nom de l’organisme et propose des données de départ.')
+      console.log('  3. Créez les comptes de l’équipe (Administration > Utilisateurs) et attribuez les rôles.')
+      return
+    }
+
+    case 'create-user': {
+      const email = need('email')
+      const name = need('name')
+      const role = roleOption()
+      const admin = has('admin')
+      const temp = await insertUser(email, name, role, admin)
+      console.log(`Compte créé pour ${name} <${email}> (${role}${admin ? ', administrateur' : ''}).`)
+      console.log(`Mot de passe temporaire (à changer à la première connexion) : ${temp}`)
+      console.log('La double authentification (TOTP) sera configurée à la première connexion.')
+      return
+    }
+
+    case 'grant-admin': {
+      const email = need('email')
       const db = createPool(dbUrl())
       try {
-        await db.query(
-          `INSERT INTO users (id, email, name, initials, title, role, password_hash, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
-          [newId('usr'), email, name, initialsOf(name), flag('title') ?? '', role, await hashPassword(temp)],
-        )
+        await withTx(db, async (tx) => {
+          await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+          const user = (await tx.query<{ id: string; name: string }>('SELECT id, name FROM users WHERE lower(email) = lower($1)', [email])).rows[0]
+          if (!user) throw new Error(`Aucun compte pour ${email}.`)
+          await tx.query('UPDATE users SET is_admin = true, disabled = false WHERE id = $1', [user.id])
+          await logEvent(tx, user.id, 'Compte modifié', `${user.name} : administrateur ajouté (ligne de commande)`)
+          console.log(`${user.name} <${email}> est maintenant administrateur.`)
+        })
       } finally {
         await db.end()
       }
-      console.log(`Compte créé pour ${name} <${email}> (${role}).`)
-      console.log(`Mot de passe temporaire (à changer à la première connexion) : ${temp}`)
-      console.log('La double authentification (TOTP) sera configurée à la première connexion.')
       return
     }
 
@@ -86,15 +154,16 @@ async function main() {
             const temp = temporaryPassword()
             const email = `${u.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '.')}@demo.local`
             await tx.query(
-              `INSERT INTO users (id, email, name, initials, title, role, password_hash, must_change_password)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, true) ON CONFLICT (id) DO NOTHING`,
-              [u.id, email, u.name, u.initials, u.title, u.role, await hashPassword(temp)],
+              `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) ON CONFLICT (id) DO NOTHING`,
+              [u.id, email, u.name, u.initials, u.title, u.role, u.isAdmin === true, await hashPassword(temp)],
             )
-            passwords.push(`${email} (${u.role}) : ${temp}`)
+            passwords.push(`${email} (${u.role}${u.isAdmin ? ', administrateur' : ''}) : ${temp}`)
           }
           await ensureOrganization(tx, demo.organization)
           const empty: ComplianceState = { ...(await loadState(tx, 'u1')), gaps: [], remediations: [], evidence: [], history: [], milestones: [] }
           await persistChanges(tx, empty, { ...demo, users: empty.users })
+          await completeSetup(tx, 'u1')
           console.log('Données de démonstration chargées. Comptes créés :')
           passwords.forEach((p) => console.log(`  ${p}`))
         })
@@ -105,7 +174,7 @@ async function main() {
     }
 
     default:
-      console.log(`Commandes : migrate | create-user --email E --name N --role R [--title T] | verify-history | seed-demo`)
+      console.log('Commandes : migrate | init --email E --name N [--role R] | create-user --email E --name N --role R [--title T] [--admin] | grant-admin --email E | verify-history | seed-demo')
       process.exitCode = command ? 1 : 0
   }
 }

@@ -58,7 +58,7 @@ export const download = (filename: string, content: string, mime: string): void 
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const userName = (state: ComplianceState, id: string): string => state.users.find((u) => u.id === id)?.name ?? '—'
+const userName = (state: ComplianceState, id: string): string => state.users.find((u) => u.id === id)?.name ?? 'Inconnu'
 
 export function buildReportHtml(state: ComplianceState): string {
   const gaps = activeGaps(state.gaps)
@@ -98,15 +98,15 @@ export function buildReportHtml(state: ComplianceState): string {
       ].join('')
       return `
       <section class="gap">
-        <h3><span class="dot" style="background:${crit[g.criticality]}"></span>${esc(g.id)} — ${esc(g.title)} ${flags}</h3>
+        <h3><span class="dot" style="background:${crit[g.criticality]}"></span>${esc(g.id)} : ${esc(g.title)} ${flags}</h3>
         <table class="kv">
           <tr><th>Criticité</th><td>${CRITICALITY_BY_ID[g.criticality].label}</td><th>Statut</th><td>${GAP_STATUS_BY_ID[g.status].label} (${gapProgress(g, remediations)} %)</td></tr>
           <tr><th>Échéance</th><td>${formatDate(g.dueDate)}</td><th>Assigné à</th><td>${esc(userName(state, g.assignee))}</td></tr>
           <tr><th>Mesures ISO</th><td colspan="3">${g.controlIds.map((c) => esc(controlLabel(c))).join('<br>')}</td></tr>
-          <tr><th>NIS2</th><td colspan="3">${g.nis2Refs.map((n) => esc(getNis2(n)?.label ?? n)).join('<br>') || '—'}</td></tr>
-          <tr><th>Réf. ANSSI</th><td colspan="3">${esc(g.anssiRef) || '—'}</td></tr>
-          <tr><th>Impact</th><td colspan="3">${esc(g.impact) || '—'}</td></tr>
-          ${g.validation ? `<tr><th>Validation</th><td colspan="3">Par ${esc(userName(state, g.validation.by))} le ${formatDate(g.validation.date)}${g.validation.comment ? ` — ${esc(g.validation.comment)}` : ''}. Prochaine revue : ${formatDate(g.nextReviewDate)}</td></tr>` : ''}
+          <tr><th>NIS2</th><td colspan="3">${g.nis2Refs.map((n) => esc(getNis2(n)?.label ?? n)).join('<br>') || 'Non renseigné'}</td></tr>
+          <tr><th>Réf. ANSSI</th><td colspan="3">${esc(g.anssiRef) || 'Non renseigné'}</td></tr>
+          <tr><th>Impact</th><td colspan="3">${esc(g.impact) || 'Non renseigné'}</td></tr>
+          ${g.validation ? `<tr><th>Validation</th><td colspan="3">Par ${esc(userName(state, g.validation.by))} le ${formatDate(g.validation.date)}${g.validation.comment ? ` : ${esc(g.validation.comment)}` : ''}. Prochaine revue : ${formatDate(g.nextReviewDate)}</td></tr>` : ''}
         </table>
         <p class="desc">${esc(g.description)}</p>
         ${
@@ -119,14 +119,14 @@ export function buildReportHtml(state: ComplianceState): string {
                 .join('')}</tbody></table>`
             : '<p class="muted">Aucune remédiation planifiée.</p>'
         }
-        ${evs.length ? `<h4>Preuves</h4><ul>${evs.map((e) => `<li>${esc(e.name)} — ${formatDate(e.uploadedAt)} (${esc(userName(state, e.uploadedBy))})</li>`).join('')}</ul>` : ''}
+        ${evs.length ? `<h4>Preuves</h4><ul>${evs.map((e) => `<li>${esc(e.name)}, ${formatDate(e.uploadedAt)} (${esc(userName(state, e.uploadedBy))})</li>`).join('')}</ul>` : ''}
       </section>`
     })
     .join('')
 
   return `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
-<title>Rapport de conformité ISO 27001 / NIS2 — ${esc(state.organization.name)} — ${toISODate(new Date())}</title>
+<title>Rapport de conformité ISO 27001 / NIS2, ${esc(state.organization.name)}, ${toISODate(new Date())}</title>
 <style>
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#343741;max-width:1000px;margin:0 auto;padding:32px;line-height:1.5}
   header{background:#006BB8;color:#fff;padding:24px 32px;border-radius:8px;border-bottom:4px solid #006BB8}
@@ -152,7 +152,7 @@ export function buildReportHtml(state: ComplianceState): string {
 </style></head><body>
 <header>
   <h1>Rapport de conformité ISO 27001:2022 / NIS2-ANSSI</h1>
-  <p>${esc(state.organization.name)} — ${esc(state.organization.sector)}</p>
+  <p>${esc(state.organization.name)}, ${esc(state.organization.sector)}</p>
   <p>Généré le ${generated} · Dernière mise à jour des données : ${formatDateTime(state.lastUpdated)}</p>
 </header>
 <div class="kpis">
@@ -167,7 +167,7 @@ export function buildReportHtml(state: ComplianceState): string {
   <table class="summary"><thead><tr><th>Criticité</th><th>Nb</th><th>Validées</th></tr></thead><tbody>${critRows}</tbody></table>
 </div>
 <table class="summary"><thead><tr><th>Thème ISO 27001:2022</th><th>Lacunes</th><th>Ouvertes</th><th>Score</th></tr></thead><tbody>${themeRows}</tbody></table>
-<p class="muted">Score = Σ(poids × avancement) / Σ(poids) ; poids : Critique ×4, Haute ×3, Moyenne ×2, Basse ×1. Avancement : Non traitée 0 %, En cours 10–75 % selon les remédiations, Corrigée 80 %, Validée 100 %.</p>
+<p class="muted">Score = Σ(poids × avancement) / Σ(poids) ; poids : Critique ×4, Haute ×3, Moyenne ×2, Basse ×1. Avancement : Non traitée 0 %, En cours de 10 à 75 % selon les remédiations, Corrigée 80 %, Validée 100 %.</p>
 <h2>Détail des lacunes (${sorted.length})</h2>
 ${gapSections}
 <footer>Document généré automatiquement par l'outil de suivi de conformité. La correspondance ISO 27001 ↔ NIS2 est indicative.</footer>

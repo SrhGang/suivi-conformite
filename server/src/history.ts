@@ -4,7 +4,7 @@
  * chaîne et est détectée par `verifyHistory`.
  */
 import { createHash } from 'node:crypto'
-import type { HistoryEntry } from '../../src/types'
+import type { ComplianceState, HistoryEntry } from '../../src/types'
 import type { Db, Tx } from './db'
 
 export const GENESIS_HASH = '0'.repeat(64)
@@ -72,4 +72,24 @@ export async function verifyHistory(db: Db): Promise<VerifyReport> {
     prev = r.hash
   }
   return { ok: true, count: rows.length }
+}
+
+/** Ajoute au journal d'audit un évènement hors action métier (gestion des comptes). */
+export async function logEvent(tx: Tx, userId: string, action: string, details: string): Promise<void> {
+  const meta = await tx.query<{ value: ComplianceState['counters'] }>(`SELECT value FROM app_meta WHERE key = 'counters'`)
+  const counters: ComplianceState['counters'] = Object.assign({ gap: 0, remediation: 0, evidence: 0, history: 0, review: 0 }, meta.rows[0]?.value)
+  counters.history += 1
+  const entry: HistoryEntry = {
+    id: `H-${String(counters.history).padStart(4, '0')}`,
+    gapId: null,
+    date: new Date().toISOString(),
+    userId,
+    action,
+    details,
+  }
+  await appendHistory(tx, [entry])
+  await tx.query(
+    `INSERT INTO app_meta (key, value) VALUES ('counters', $1::jsonb), ('lastUpdated', $2::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [JSON.stringify(counters), JSON.stringify(entry.date)],
+  )
 }

@@ -49,6 +49,7 @@ export default function GapsInventory() {
   const nis2 = params.get('nis2') ?? ''
   const retard = params.get('retard') === '1'
   const archives = params.get('archives') === '1'
+  const aConfirmer = params.get('aconfirmer') === '1'
   const sortParam = params.get('tri')
   const sort: SortKey = SORT_KEYS.includes(sortParam as SortKey) ? (sortParam as SortKey) : 'criticality'
   const order = params.get('ordre') ?? (sort === 'criticality' ? 'desc' : 'asc')
@@ -77,6 +78,7 @@ export default function GapsInventory() {
       if (statut === 'ouvertes' ? g.status === 'validee' : statut && g.status !== statut) return false
       if (nis2 && !g.nis2Refs.includes(nis2 as Nis2Id)) return false
       if (retard && !isGapOverdue(g)) return false
+      if (aConfirmer && !g.toConfirm) return false
       if (nq) {
         const hay = normalize(
           [g.id, g.title, g.description, g.impact, g.anssiRef, ...g.controlIds.map((c) => `a.${c} ${c} ${getControl(c)?.title}`), ...g.nis2Refs].join(' '),
@@ -85,7 +87,7 @@ export default function GapsInventory() {
       }
       return true
     })
-  }, [state.gaps, q, criticite, theme, statut, nis2, retard, archives])
+  }, [state.gaps, q, criticite, theme, statut, nis2, retard, archives, aConfirmer])
 
   const sorted = useMemo(() => {
     const val = (g: Gap): string | number => {
@@ -194,6 +196,11 @@ export default function GapsInventory() {
         <label className="toggle">
           <input type="checkbox" checked={archives} onChange={(e) => update({ archives: e.target.checked })} /> Archivées
         </label>
+        {(aConfirmer || state.gaps.some((g) => g.toConfirm && !g.archived)) && (
+          <label className="toggle">
+            <input type="checkbox" checked={aConfirmer} onChange={(e) => update({ aconfirmer: e.target.checked })} /> À confirmer
+          </label>
+        )}
       </div>
 
       <div className="counter-line">
@@ -277,6 +284,7 @@ export default function GapsInventory() {
                           <div className="tiny muted">
                             {g.controlIds.map((c) => `A.${c}`).join(' · ')}
                             {g.archived && ' · Archivée'}
+                            {g.toConfirm && !g.archived && ' · À confirmer'}
                             {isReviewDue(g) && ' · revue due'}
                           </div>
                         </td>
@@ -327,7 +335,7 @@ export default function GapsInventory() {
             </div>
             <div className="pagination">
               <span>
-                {(current - 1) * PAGE_SIZE + 1}–{Math.min(current * PAGE_SIZE, sorted.length)} sur {sorted.length}
+                {(current - 1) * PAGE_SIZE + 1} à {Math.min(current * PAGE_SIZE, sorted.length)} sur {sorted.length}
               </span>
               <div className="pagination__pages">
                 <button disabled={current === 1} onClick={() => update({ page: current - 1 }, false)} aria-label="Page précédente">

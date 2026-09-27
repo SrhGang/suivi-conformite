@@ -1,6 +1,6 @@
 /**
  * Construit la version « page hébergée » : un seul fichier HTML autonome
- * (JS et CSS en ligne), sans balises <html>/<head>/<body> — l'hébergeur
+ * (JS et CSS en ligne), sans balises <html>/<head>/<body> : l'hébergeur
  * ajoute lui-même le squelette.
  *
  *   npm run build:artifact   →   artifact/suivi-conformite.html
@@ -21,7 +21,7 @@ if (js.length !== 1) throw new Error(`Un seul bundle JS attendu, trouvé : ${js.
 const safeJs = js[0].replace(/<\/script/gi, '<\\/script')
 
 const html = `<title>Suivi de conformité ISO 27001</title>
-<meta name="description" content="Suivi des lacunes ISO 27001:2022 / NIS2-ANSSI — prototype interactif">
+<meta name="description" content="Suivi des lacunes ISO 27001:2022 / NIS2-ANSSI, prototype interactif">
 <style>
 ${css.join('\n')}
 </style>
@@ -33,4 +33,4 @@ ${safeJs}
 
 mkdirSync('artifact', { recursive: true })
 writeFileSync('artifact/suivi-conformite.html', html)
-console.log(`artifact/suivi-conformite.html — ${(html.length / 1024).toFixed(0)} Ko`)
+console.log(`artifact/suivi-conformite.html : ${(html.length / 1024).toFixed(0)} Ko`)

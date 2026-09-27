@@ -37,13 +37,13 @@ export const diffDays = (a: ISODate, b: ISODate): number => Math.round((parseDat
 
 /** Accepte une date AAAA-MM-JJ ou un horodatage ISO complet. */
 export const formatDate = (s: string | null | undefined): string => {
-  if (!s) return '—'
+  if (!s) return '-'
   const d = s.length > 10 ? new Date(s) : parseDate(s)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export const formatDateTime = (s: string | null | undefined): string => {
-  if (!s) return '—'
+  if (!s) return '-'
   return new Date(s).toLocaleString('fr-FR', {
     day: '2-digit',
     month: '2-digit',

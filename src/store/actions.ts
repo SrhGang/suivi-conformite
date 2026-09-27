@@ -1,10 +1,11 @@
 /**
  * Logique métier pure : chaque action reçoit (state, user, payload) et retourne
- * un `ActionResult` — `{ ok: true, state, result }` ou `{ ok: false, error }`.
+ * un `ActionResult` : `{ ok: true, state, result }` ou `{ ok: false, error }`.
  * Aucune dépendance à React : testable seule.
  */
 import { CRITICALITY_BY_ID, GAP_STATUS_BY_ID, REMEDIATION_STATUS_BY_ID } from '../data/constants'
 import { controlLabel, suggestNis2 } from '../data/isoControls'
+import { STARTER_DUE_MONTHS, STARTER_GAPS } from '../data/starterGaps'
 import type {
   ActionResult,
   ComplianceState,
@@ -24,7 +25,7 @@ import type {
   User,
 } from '../types'
 import { nextReviewFrom, validationBlockers } from '../utils/compliance'
-import { formatDate, today } from '../utils/dates'
+import { addMonths, formatDate, today } from '../utils/dates'
 
 export const can = (user: User | null | undefined, permission: Permission): boolean => {
   const role = user?.role
@@ -34,8 +35,9 @@ export const can = (user: User | null | undefined, permission: Permission): bool
     case 'validate':
     case 'archive':
     case 'review':
-    case 'admin':
       return role === 'responsable'
+    case 'admin':
+      return user?.isAdmin === true
     default:
       return false
   }
@@ -90,7 +92,7 @@ const GAP_FIELD_LABELS: Record<TrackedField, string> = {
 }
 
 const displayValue = (state: ComplianceState, field: TrackedField, value: Gap[TrackedField] | undefined): string => {
-  if (value == null || value === '') return '—'
+  if (value == null || value === '') return '(vide)'
   if (Array.isArray(value)) return field === 'controlIds' ? value.map((c) => `A.${c}`).join(', ') : value.join(', ')
   switch (field) {
     case 'criticality':
@@ -202,6 +204,55 @@ export function changeGapStatus(
   return ok(withHistory(next, user, gapId, action, `${from} → ${to}${comment ? `. ${comment}` : ''}`), updated)
 }
 
+/** Confirme une lacune issue des données de départ : elle concerne bien l'organisme. */
+export function confirmGap(state: ComplianceState, user: User, gapId: string): ActionResult<Gap> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de confirmer une lacune.')
+  const gap = state.gaps.find((g) => g.id === gapId)
+  if (!gap) return deny('Lacune introuvable.')
+  if (!gap.toConfirm) return ok(state, gap)
+  const { toConfirm: _, ...rest } = gap
+  const updated: Gap = { ...rest, updatedAt: now(), updatedBy: user.id }
+  const next = { ...state, gaps: replaceGap(state, updated) }
+  return ok(withHistory(next, user, gapId, 'Confirmation', 'Lacune de départ confirmée : elle concerne l’organisme.'), updated)
+}
+
+/**
+ * Charge les lacunes de départ (première installation, administrateur).
+ * Refusé si des lacunes existent déjà. Chaque lacune est créée « à confirmer ».
+ */
+export function loadStarterGaps(state: ComplianceState, user: User): ActionResult<number> {
+  if (!can(user, 'admin')) return deny('Seul un administrateur peut charger les données de départ.')
+  if (state.gaps.length) return deny('Des lacunes existent déjà : les données de départ ne peuvent être chargées que sur une base vide.')
+  let next = state
+  for (const s of STARTER_GAPS) {
+    const [id, counters] = nextId(next, 'gap', 'GAP')
+    const gap: Gap = {
+      id,
+      title: s.title,
+      description: s.description,
+      controlIds: s.controlIds,
+      nis2Refs: s.nis2Refs ?? suggestNis2(s.controlIds),
+      anssiRef: s.anssiRef,
+      criticality: s.criticality,
+      status: 'non_traitee',
+      impact: s.impact,
+      dueDate: addMonths(today(), STARTER_DUE_MONTHS[s.criticality]),
+      createdAt: now(),
+      createdBy: user.id,
+      assignee: '',
+      updatedAt: now(),
+      updatedBy: user.id,
+      archived: false,
+      validation: null,
+      nextReviewDate: null,
+      reviews: [],
+      toConfirm: true,
+    }
+    next = withHistory({ ...next, counters, gaps: [...next.gaps, gap] }, user, id, 'Création', 'Lacune de départ ajoutée à l’installation, à confirmer.')
+  }
+  return ok(next, STARTER_GAPS.length)
+}
+
 export function duplicateGap(state: ComplianceState, user: User, gapId: string): ActionResult<Gap> {
   const gap = state.gaps.find((g) => g.id === gapId)
   if (!gap) return deny('Lacune introuvable.')
@@ -303,7 +354,7 @@ export function addRemediation(
     description: input.description?.trim() ?? '',
   })
   let next: ComplianceState = { ...state, counters, remediations: [...state.remediations, rem] }
-  next = withHistory(next, user, gapId, 'Remédiation ajoutée', `${id} — ${rem.title}`)
+  next = withHistory(next, user, gapId, 'Remédiation ajoutée', `${id} : ${rem.title}`)
   // Démarrer une remédiation fait passer une lacune « Non traitée » à « En cours ».
   if (gap.status === 'non_traitee') {
     const r = changeGapStatus(next, user, gapId, 'en_cours', 'Passage automatique : remédiation planifiée.')
@@ -335,7 +386,7 @@ export function updateRemediation(
   if (merged.type !== rem.type || merged.description !== rem.description) parts.push('Détails mis à jour')
   if (!parts.length) return ok(state, rem)
   const next = { ...state, remediations: state.remediations.map((r) => (r.id === remId ? merged : r)) }
-  return ok(withHistory(next, user, rem.gapId, 'Remédiation modifiée', `${remId} — ${parts.join(' ; ')}`), merged)
+  return ok(withHistory(next, user, rem.gapId, 'Remédiation modifiée', `${remId} : ${parts.join(' ; ')}`), merged)
 }
 
 export function deleteRemediation(state: ComplianceState, user: User, remId: string): ActionResult<Remediation> {
@@ -343,7 +394,7 @@ export function deleteRemediation(state: ComplianceState, user: User, remId: str
   const rem = state.remediations.find((r) => r.id === remId)
   if (!rem) return deny('Remédiation introuvable.')
   const next = { ...state, remediations: state.remediations.filter((r) => r.id !== remId) }
-  return ok(withHistory(next, user, rem.gapId, 'Remédiation supprimée', `${remId} — ${rem.title}`), rem)
+  return ok(withHistory(next, user, rem.gapId, 'Remédiation supprimée', `${remId} : ${rem.title}`), rem)
 }
 
 /* ------------------------------------------------------------------ */

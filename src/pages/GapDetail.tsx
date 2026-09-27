@@ -43,7 +43,7 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function GapDetail() {
   const { id } = useParams()
-  const { state, currentUser, can, notify, changeGapStatus, duplicateGap, archiveGap, restoreGap } = useCompliance()
+  const { state, currentUser, can, notify, changeGapStatus, duplicateGap, confirmGap, archiveGap, restoreGap } = useCompliance()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
@@ -98,6 +98,7 @@ export default function GapDetail() {
           {late && <LateBadge label={`Échéance ${relativeDue(gap.dueDate)}`} />}
           {isReviewDue(gap) && <span className="badge badge--warning">Revue périodique due</span>}
           {gap.archived && <span className="badge badge--neutral">Archivée</span>}
+          {gap.toConfirm && !gap.archived && <span className="badge badge--warning">À confirmer</span>}
           <span className="badge badge--outline">
             Avancement {gapProgress(gap, state.remediations)} %
           </span>
@@ -108,6 +109,37 @@ export default function GapDetail() {
         <div className="banner banner--info">
           <span>ℹ</span>
           <span>Cette lacune est archivée : elle est exclue des indicateurs et n'est plus modifiable. Son historique est conservé.</span>
+        </div>
+      )}
+
+      {gap.toConfirm && !gap.archived && (
+        <div className="banner banner--warning">
+          <span>ℹ</span>
+          <div>
+            <strong>Lacune de départ à confirmer.</strong> Elle a été proposée à l’installation. Vérifiez qu’elle concerne votre organisme, ajustez-la si
+            besoin, puis confirmez-la. Sinon, archivez-la.
+            {(can('edit') || can('archive')) && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {can('edit') && (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={async () => {
+                      const r = await confirmGap(gap.id)
+                      if (r.ok) notify('Lacune confirmée.')
+                      else notify(r.error, 'error')
+                    }}
+                  >
+                    Confirmer la lacune
+                  </button>
+                )}
+                {can('archive') && (
+                  <button className="btn btn--secondary btn--sm" onClick={() => setArchiving(true)}>
+                    Ne nous concerne pas : archiver
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -275,7 +307,7 @@ function DetailsTab({ gap }: { gap: Gap }) {
   return (
     <dl className="dl">
       <dt>Description</dt>
-      <dd style={{ whiteSpace: 'pre-wrap' }}>{gap.description || <span className="muted">—</span>}</dd>
+      <dd style={{ whiteSpace: 'pre-wrap' }}>{gap.description || <span className="muted">Non renseigné</span>}</dd>
       <dt>Mesures ISO 27001:2022</dt>
       <dd>
         <ul>
@@ -300,17 +332,17 @@ function DetailsTab({ gap }: { gap: Gap }) {
             ))}
           </ul>
         ) : (
-          <span className="muted">—</span>
+          <span className="muted">Non renseigné</span>
         )}
       </dd>
       <dt>Référence ANSSI</dt>
-      <dd>{gap.anssiRef || <span className="muted">—</span>}</dd>
+      <dd>{gap.anssiRef || <span className="muted">Non renseigné</span>}</dd>
       <dt>Criticité</dt>
       <dd>
         <CriticalityBadge value={gap.criticality} /> <span className="small muted">poids ×{CRITICALITY_BY_ID[gap.criticality].weight} dans le score</span>
       </dd>
       <dt>Impact potentiel</dt>
-      <dd>{gap.impact || <span className="muted">—</span>}</dd>
+      <dd>{gap.impact || <span className="muted">Non renseigné</span>}</dd>
       <dt>Délai de résolution</dt>
       <dd>
         {formatDate(gap.dueDate)} <span className="small muted">({relativeDue(gap.dueDate)})</span>
@@ -474,7 +506,7 @@ function ProofTab({ gap, blockers, onValidate }: { gap: Gap; blockers: string[];
           <strong>Validée</strong> par <UserName id={gap.validation.by} /> le {formatDateTime(gap.validation.date)}
           {gap.validation.comment && <div className="small" style={{ marginTop: 4 }}>« {gap.validation.comment} »</div>}
           <div className="small" style={{ marginTop: 8 }}>
-            Prochaine revue périodique : <strong>{formatDate(gap.nextReviewDate)}</strong> ({relativeDue(gap.nextReviewDate)}) — tous les {reviewIntervalMonths(gap)} mois pour une criticité {CRITICALITY_BY_ID[gap.criticality].label.toLowerCase()}.
+            Prochaine revue périodique : <strong>{formatDate(gap.nextReviewDate)}</strong> ({relativeDue(gap.nextReviewDate)}), tous les {reviewIntervalMonths(gap)} mois pour une criticité {CRITICALITY_BY_ID[gap.criticality].label.toLowerCase()}.
           </div>
           {can('review') && !gap.archived && (
             <button className={`btn ${reviewDue ? 'btn--accent' : 'btn--secondary'} btn--sm`} style={{ marginTop: 12 }} onClick={() => setReviewing(true)}>
@@ -544,16 +576,16 @@ function ReviewDialog({ gap, onClose, onSubmit }: ReviewDialogProps) {
   const [outcome, setOutcome] = useState<ReviewOutcome>('conforme')
   const [comment, setComment] = useState('')
   return (
-    <Modal title={`Revue périodique — ${gap.id}`} onClose={onClose} size="sm">
+    <Modal title={`Revue périodique de ${gap.id}`} onClose={onClose} size="sm">
       <p className="small" style={{ marginBottom: 16 }}>
         Vérifiez que la mesure est toujours appliquée et que les preuves sont à jour.
       </p>
       <div className="field">
         <label className="toggle" style={{ color: 'var(--neutral-800)' }}>
-          <input type="radio" name="outcome" checked={outcome === 'conforme'} onChange={() => setOutcome('conforme')} /> Toujours conforme — replanifier la prochaine revue
+          <input type="radio" name="outcome" checked={outcome === 'conforme'} onChange={() => setOutcome('conforme')} /> Toujours conforme : replanifier la prochaine revue
         </label>
         <label className="toggle" style={{ color: 'var(--neutral-800)' }}>
-          <input type="radio" name="outcome" checked={outcome === 'non_conforme'} onChange={() => setOutcome('non_conforme')} /> Non conforme — rouvrir la lacune
+          <input type="radio" name="outcome" checked={outcome === 'non_conforme'} onChange={() => setOutcome('non_conforme')} /> Non conforme : rouvrir la lacune
         </label>
       </div>
       <div className="field">

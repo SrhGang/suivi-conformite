@@ -41,7 +41,7 @@ export type AuthStage = 'password_change' | 'totp_enroll' | 'totp' | 'full'
 export interface MeResponse {
   ok: true
   stage: AuthStage | null
-  user?: { id: string; email: string; name: string; role: string }
+  user?: { id: string; email: string; name: string; role: string; isAdmin: boolean }
 }
 
 export const authApi = {
@@ -63,6 +63,7 @@ export interface ManagedUser {
   initials: string
   title: string
   role: 'responsable' | 'contributeur' | 'lecteur'
+  is_admin: boolean
   disabled: boolean
   totp_enabled: boolean
   must_change_password: boolean
@@ -73,12 +74,20 @@ export interface ManagedUser {
 
 export const usersApi = {
   list: () => apiFetch<{ ok: true; users: ManagedUser[] }>('/api/users'),
-  create: (input: { email: string; name: string; title: string; role: ManagedUser['role'] }) =>
+  create: (input: { email: string; name: string; title: string; role: ManagedUser['role']; isAdmin: boolean }) =>
     apiFetch<{ ok: true; id: string; temporaryPassword: string }>('/api/users', { method: 'POST', json: input }),
-  update: (id: string, changes: Partial<Pick<ManagedUser, 'name' | 'title' | 'role' | 'disabled'>>) =>
+  update: (id: string, changes: Partial<Pick<ManagedUser, 'name' | 'title' | 'role' | 'disabled'> & { isAdmin: boolean }>) =>
     apiFetch<{ ok: true }>(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', json: changes }),
   reset: (id: string) =>
     apiFetch<{ ok: true; temporaryPassword: string }>(`/api/users/${encodeURIComponent(id)}/reset`, { method: 'POST', json: {} }),
   verifyAudit: () =>
     apiFetch<{ ok: true; report: { ok: boolean; count: number; brokenAt?: { seq: number; id: string; reason: string } } }>('/api/audit/verify'),
+}
+
+/** Première installation et informations de l'organisme (administrateur). */
+export const setupApi = {
+  saveOrganization: (organization: { name: string; sector: string }) =>
+    apiFetch<{ ok: true }>('/api/organization', { method: 'PUT', json: organization }),
+  loadStarterGaps: () => apiFetch<{ ok: true; result: number }>('/api/setup/starter', { method: 'POST', json: {} }),
+  complete: () => apiFetch<{ ok: true }>('/api/setup/complete', { method: 'POST', json: {} }),
 }

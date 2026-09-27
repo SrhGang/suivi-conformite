@@ -1,6 +1,6 @@
 /**
  * Données de démonstration réalistes pour un organisme fictif soumis à NIS2
- * (entité essentielle — secteur de l'eau). Les dates sont calculées
+ * (entité essentielle, secteur de l'eau). Les dates sont calculées
  * relativement à la date du jour pour que retards et revues restent parlants.
  */
 import { suggestNis2 } from './isoControls'
@@ -25,12 +25,12 @@ import type {
 
 export const ORGANIZATION: Organization = {
   name: 'Eaux du Val de Loire (fictif)',
-  sector: "Eau potable — entité essentielle NIS2",
+  sector: "Eau potable, entité essentielle NIS2",
 }
 
 export const DEMO_USERS: User[] = [
   { id: 'u1', name: 'Alice Martin', initials: 'AM', title: 'RSSI', role: 'responsable' },
-  { id: 'u2', name: 'Bruno Leroy', initials: 'BL', title: 'Administrateur systèmes & réseaux', role: 'contributeur' },
+  { id: 'u2', name: 'Bruno Leroy', initials: 'BL', title: 'Administrateur systèmes & réseaux', role: 'contributeur', isAdmin: true },
   { id: 'u3', name: 'Chloé Dubois', initials: 'CD', title: 'DSI adjointe', role: 'contributeur' },
   { id: 'u4', name: 'David Bernard', initials: 'DB', title: 'Auditeur interne', role: 'lecteur' },
   { id: 'u5', name: 'Emma Petit', initials: 'EP', title: 'Responsable RH', role: 'contributeur' },
@@ -38,19 +38,19 @@ export const DEMO_USERS: User[] = [
 ]
 
 const ANSSI = {
-  mfa: "ANSSI — Recommandations relatives à l'authentification multifacteur et aux mots de passe",
-  hygiene: "ANSSI — Guide d'hygiène informatique",
-  admin: "ANSSI — Recommandations relatives à l'administration sécurisée des SI",
-  logs: 'ANSSI — Recommandations de sécurité pour la mise en œuvre d’un système de journalisation',
-  backup: 'ANSSI — Fondamentaux de la sauvegarde des systèmes d’information',
-  crise: 'ANSSI — Guide « Crise d’origine cyber, les clés d’une gestion opérationnelle et stratégique »',
-  ebios: 'ANSSI — Méthode EBIOS Risk Manager',
-  ics: 'ANSSI — Cybersécurité des systèmes industriels : mesures détaillées',
-  tls: 'ANSSI — Recommandations de sécurité relatives à TLS',
-  ad: 'ANSSI — Points de contrôle Active Directory',
-  mail: 'ANSSI — Recommandations pour la sécurisation de la messagerie',
-  externe: "ANSSI — Maîtriser les risques de l'infogérance",
-  nis2: 'ANSSI — Référentiel des mesures de sécurité NIS2 (à confirmer selon la version publiée)',
+  mfa: "ANSSI : Recommandations relatives à l'authentification multifacteur et aux mots de passe",
+  hygiene: "ANSSI : Guide d'hygiène informatique",
+  admin: "ANSSI : Recommandations relatives à l'administration sécurisée des SI",
+  logs: 'ANSSI : Recommandations de sécurité pour la mise en œuvre d’un système de journalisation',
+  backup: 'ANSSI : Fondamentaux de la sauvegarde des systèmes d’information',
+  crise: 'ANSSI : Guide « Crise d’origine cyber, les clés d’une gestion opérationnelle et stratégique »',
+  ebios: 'ANSSI : Méthode EBIOS Risk Manager',
+  ics: 'ANSSI : Cybersécurité des systèmes industriels : mesures détaillées',
+  tls: 'ANSSI : Recommandations de sécurité relatives à TLS',
+  ad: 'ANSSI : Points de contrôle Active Directory',
+  mail: 'ANSSI : Recommandations pour la sécurisation de la messagerie',
+  externe: "ANSSI : Maîtriser les risques de l'infogérance",
+  nis2: 'ANSSI : Référentiel des mesures de sécurité NIS2 (à confirmer selon la version publiée)',
 }
 
 // [id, titre, description, mesures ISO, réf. ANSSI, criticité, statut, impact,
@@ -104,7 +104,7 @@ const GAPS: GapRow[] = [
   ['GAP-023', 'Aucune revue indépendante de la sécurité', "Aucun audit externe de la sécurité n'a été réalisé depuis 5 ans.", ['5.35'], ANSSI.nis2, 'basse', 'non_traitee', 'Mauvaise appréciation du niveau de sécurité réel.', 200, -30, 'u1', 'u4'],
   ['GAP-024', 'Mise au rebut des disques sans effacement sécurisé', 'Les disques des postes réformés sont remis au recycleur sans effacement certifié.', ['7.14', '8.10'], ANSSI.hygiene, 'basse', 'corrigee', 'Récupération de données sur du matériel réformé.', 5, -28, 'u3', 'u3'],
   ['GAP-025', 'Accès VPN des prestataires sans MFA', "Les 4 prestataires de maintenance accèdent au SI par VPN avec un simple identifiant/mot de passe partagé.", ['8.5', '5.21'], ANSSI.mfa, 'critique', 'en_cours', 'Compromission via un compte prestataire partagé.', 15, -25, 'u1', 'u2'],
-  ['GAP-026', 'Doublon — MFA VPN prestataires', 'Lacune créée en double de GAP-025, archivée.', ['8.5'], ANSSI.mfa, 'critique', 'non_traitee', '—', 15, -24, 'u2', 'u2', { archived: true }],
+  ['GAP-026', 'Doublon : MFA VPN prestataires', 'Lacune créée en double de GAP-025, archivée.', ['8.5'], ANSSI.mfa, 'critique', 'non_traitee', '', 15, -24, 'u2', 'u2', { archived: true }],
 ]
 
 // [id, gapId, titre, type, statut, avancement, début (j), cible (j), responsable, description]
@@ -247,7 +247,7 @@ export const buildDemoData = (): ComplianceState => {
   const remediations = REMEDIATIONS.map(([id, gapId, title, type, status, progress, start, target, owner, description]) => {
     // Une remédiation planifiée dans le futur a été saisie dans le passé.
     const logged = Math.max((createdOffset.get(gapId) ?? start) + 1, Math.min(start, -1))
-    history.push(hist(gapId, logged, owner, 'Remédiation ajoutée', `${id} — ${title}`))
+    history.push(hist(gapId, logged, owner, 'Remédiation ajoutée', `${id} : ${title}`))
     const rem: Remediation = { id, gapId, title, type, status, progress, startDate: d(start), targetDate: d(target), owner, description }
     return rem
   })

@@ -85,12 +85,13 @@ export default function Dashboard() {
   }
 
   const alerts = showAllAlerts ? data.alerts : data.alerts.slice(0, 5)
+  const toConfirm = state.gaps.filter((g) => g.toConfirm && !g.archived).length
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Tableau de bord — Conformité ISO 27001 / NIS2-ANSSI</h1>
+          <h1>Tableau de bord de conformité ISO 27001 / NIS2-ANSSI</h1>
           <p className="page-head__sub">
             {state.organization.name} · Dernière mise à jour : {formatDateTime(state.lastUpdated)}
           </p>
@@ -104,6 +105,19 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {toConfirm > 0 && (
+        <div className="banner banner--warning">
+          <span>ℹ</span>
+          <span>
+            <strong>
+              {toConfirm} lacune{toConfirm > 1 ? 's' : ''} de départ à confirmer.
+            </strong>{' '}
+            Gardez celles qui concernent votre organisme et archivez les autres.{' '}
+            <Link to="/lacunes?aconfirmer=1">Voir la liste</Link>
+          </span>
+        </div>
+      )}
 
       <div className="kpi-grid">
         <button className="kpi kpi--accent" onClick={() => navigate('/lacunes')}>

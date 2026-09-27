@@ -47,15 +47,37 @@ export interface UserRow {
   initials: string
   title: string
   role: Role
+  is_admin: boolean
   disabled: boolean
 }
 
-export const toPublicUser = (u: UserRow): User => ({ id: u.id, name: u.name, initials: u.initials, title: u.title, role: u.role })
+export const toPublicUser = (u: UserRow): User => ({
+  id: u.id,
+  name: u.name,
+  initials: u.initials,
+  title: u.title,
+  role: u.role,
+  ...(u.is_admin ? { isAdmin: true } : {}),
+})
+
+export interface SetupState {
+  completed: boolean
+  completedAt?: string
+  by?: string
+}
+
+export const getSetup = (q: Queryable) => getMeta<SetupState>(q, 'setup', { completed: false })
+
+export async function completeSetup(q: Queryable, userId: string): Promise<void> {
+  await setMeta(q, 'setup', { completed: true, completedAt: new Date().toISOString(), by: userId } satisfies SetupState)
+}
+
+export const saveOrganization = (q: Queryable, org: Organization) => setMeta(q, 'organization', org)
 
 /** État complet vu par l'utilisateur `currentUserId`. */
 export async function loadState(q: Queryable, currentUserId: string): Promise<ComplianceState> {
   // Requêtes séquentielles : une transaction n'accepte qu'une requête à la fois.
-  const users = await q.query<UserRow>('SELECT id, email, name, initials, title, role, disabled FROM users ORDER BY name')
+  const users = await q.query<UserRow>('SELECT id, email, name, initials, title, role, is_admin, disabled FROM users ORDER BY name')
   const gaps = await q.query<{ data: Gap }>('SELECT data FROM gaps ORDER BY id')
   const remediations = await q.query<{ data: Remediation }>('SELECT data FROM remediations ORDER BY id')
   const evidence = await q.query<{ data: Evidence }>('SELECT data FROM evidence WHERE removed_at IS NULL ORDER BY id')
@@ -64,6 +86,7 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
   const counters = await getMeta<Counters>(q, 'counters', DEFAULT_COUNTERS)
   const milestones = await getMeta<Milestone[]>(q, 'milestones', [])
   const lastUpdated = await getMeta<string>(q, 'lastUpdated', new Date(0).toISOString())
+  const setup = await getSetup(q)
   return {
     version: 1,
     organization,
@@ -76,6 +99,7 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
     milestones,
     counters: { ...DEFAULT_COUNTERS, ...counters },
     lastUpdated,
+    ...(setup.completed ? {} : { setupPending: true }),
   }
 }
 
