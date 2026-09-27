@@ -20,8 +20,12 @@ if (js.length !== 1) throw new Error(`Un seul bundle JS attendu, trouvé : ${js.
 // Empêche la fermeture prématurée de la balise <script>.
 const safeJs = js[0].replace(/<\/script/gi, '<\\/script')
 
+// Favicon en ligne : la page est autonome.
+const favicon = `data:image/svg+xml;base64,${readFileSync('public/favicon.svg').toString('base64')}`
+
 const html = `<title>Suivi de conformité ISO 27001</title>
 <meta name="description" content="Suivi des lacunes ISO 27001:2022 / NIS2-ANSSI, prototype interactif">
+<link rel="icon" href="${favicon}" type="image/svg+xml">
 <style>
 ${css.join('\n')}
 </style>
