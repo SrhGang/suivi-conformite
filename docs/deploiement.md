@@ -44,6 +44,8 @@ curl -fsSL https://get.docker.com | sh
 usermod -aG docker deploy
 ```
 
+Déconnectez-vous puis reconnectez-vous avec `deploy` : l'appartenance au groupe `docker` n'est prise en compte qu'à la connexion suivante (sinon : `permission denied ... docker.sock`).
+
 ### Tailscale (recommandé)
 
 ```bash
@@ -100,7 +102,7 @@ SECRETS_DIR=/run/conformite
 ### Secrets chiffrés avec systemd-creds (recommandé)
 
 ```bash
-sudo ops/secrets.sh systemd-creds          # génère et chiffre les 3 secrets dans /etc/credstore.encrypted
+sudo ops/secrets.sh systemd-creds          # génère et chiffre les 3 secrets, active SECRETS_DIR dans .env
 docker compose build
 sudo cp ops/systemd/conformite.service /etc/systemd/system/
 sudo systemctl daemon-reload
