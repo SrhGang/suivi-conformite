@@ -9,7 +9,7 @@ type GateState = { kind: 'checking' } | { kind: 'error'; message: string } | { k
  * mot de passe initial, enrôlement ou saisie du code TOTP. Le contenu n'est
  * affiché qu'une fois la session complète.
  */
-export default function AuthGate({ children }: { children: (onSessionExpired: () => void) => ReactNode }) {
+export default function AuthGate({ children }: { children: (onSessionEnded: (reason?: 'logout') => void) => ReactNode }) {
   const [gate, setGate] = useState<GateState>({ kind: 'checking' })
 
   const check = useCallback(async () => {
@@ -22,7 +22,11 @@ export default function AuthGate({ children }: { children: (onSessionExpired: ()
     void check()
   }, [check])
 
-  const expired = useCallback(() => setGate({ kind: 'login', notice: 'Votre session a expiré ou a été fermée. Reconnectez-vous.' }), [])
+  const expired = useCallback(
+    (reason?: 'logout') =>
+      setGate(reason === 'logout' ? { kind: 'login', notice: 'Vous êtes déconnecté.' } : { kind: 'login', notice: 'Votre session a expiré. Reconnectez-vous.' }),
+    [],
+  )
   const advance = (stage: AuthStage) => setGate({ kind: stage })
 
   if (gate.kind === 'full') return <>{children(expired)}</>
@@ -76,6 +80,7 @@ function useSubmit() {
 function LoginForm({ notice, onDone }: { notice?: string; onDone: (s: AuthStage) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [shown, setShown] = useState(false)
   const { busy, error, setError, submit } = useSubmit()
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -100,13 +105,24 @@ function LoginForm({ notice, onDone }: { notice?: string; onDone: (s: AuthStage)
       </div>
       <div className="field">
         <label htmlFor="login-password">Mot de passe</label>
-        <input id="login-password" className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input
+          id="login-password"
+          className="input"
+          type={shown ? 'text' : 'password'}
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <label className="toggle small" style={{ marginTop: 6 }}>
+          <input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} /> Afficher le mot de passe
+        </label>
       </div>
       <button className="btn btn--primary auth-submit" type="submit" disabled={busy}>
         {busy ? 'Connexion…' : 'Se connecter'}
       </button>
       <p className="tiny muted" style={{ marginTop: 16 }}>
-        Mot de passe oublié ? Demandez à un responsable validant de réinitialiser votre accès.
+        Mot de passe oublié ou compte verrouillé ? Demandez à un administrateur de réinitialiser votre accès.
       </p>
     </form>
   )
@@ -115,6 +131,7 @@ function LoginForm({ notice, onDone }: { notice?: string; onDone: (s: AuthStage)
 function PasswordForm({ onDone }: { onDone: (s: AuthStage) => void }) {
   const [pw, setPw] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [shown, setShown] = useState(false)
   const { busy, error, setError, submit } = useSubmit()
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -138,11 +155,23 @@ function PasswordForm({ onDone }: { onDone: (s: AuthStage) => void }) {
       )}
       <div className="field">
         <label htmlFor="new-password">Nouveau mot de passe</label>
-        <input id="new-password" className="input" type="password" autoComplete="new-password" minLength={12} required value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input id="new-password" className="input" type={shown ? 'text' : 'password'} autoComplete="new-password" minLength={12} required value={pw} onChange={(e) => setPw(e.target.value)} />
       </div>
       <div className="field">
         <label htmlFor="confirm-password">Confirmation</label>
-        <input id="confirm-password" className="input" type="password" autoComplete="new-password" minLength={12} required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <input
+          id="confirm-password"
+          className="input"
+          type={shown ? 'text' : 'password'}
+          autoComplete="new-password"
+          minLength={12}
+          required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+        <label className="toggle small" style={{ marginTop: 6 }}>
+          <input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} /> Afficher les mots de passe
+        </label>
       </div>
       <button className="btn btn--primary auth-submit" type="submit" disabled={busy}>
         {busy ? 'Enregistrement…' : 'Enregistrer'}

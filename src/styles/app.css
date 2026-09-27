@@ -2517,3 +2517,19 @@ details.help ul {
 .guide__dots span.is-current {
   background: var(--primary-800);
 }
+.credentials {
+  display: flex;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-size-small);
+}
+.credentials dt {
+  color: var(--text-subdued);
+}
+.credentials dt::after {
+  content: ' :';
+}
+.credentials dd {
+  margin: 0;
+  color: var(--text-title);
+}
