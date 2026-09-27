@@ -153,7 +153,7 @@ type ResultOf<N extends ActionName> = (typeof LOCAL_ACTIONS)[N] extends (...args
 interface ProviderProps {
   children: ReactNode
   /** Appelé quand le serveur signale une session expirée (mode API). */
-  onSessionExpired?: () => void
+  onSessionExpired?: (reason?: 'logout') => void
 }
 
 export function ComplianceProvider({ children, onSessionExpired }: ProviderProps) {
@@ -309,7 +309,7 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
 
   const logout = useCallback(async () => {
     if (USE_API) await authApi.logout().catch(() => {})
-    expiredRef.current?.()
+    expiredRef.current?.('logout')
   }, [])
 
   const api = useMemo<ComplianceApi>(

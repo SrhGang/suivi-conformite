@@ -16,7 +16,7 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [resetting, setResetting] = useState<ManagedUser | null>(null)
-  const [secret, setSecret] = useState<{ name: string; password: string } | null>(null)
+  const [secret, setSecret] = useState<{ name: string; email: string; password: string } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -178,9 +178,9 @@ export default function Users() {
       {creating && (
         <CreateUserDialog
           onClose={() => setCreating(false)}
-          onCreated={(name, password) => {
+          onCreated={(name, email, password) => {
             setCreating(false)
-            setSecret({ name, password })
+            setSecret({ name, email, password })
             void load()
           }}
         />
@@ -197,17 +197,17 @@ export default function Users() {
             setResetting(null)
             const res = await usersApi.reset(u.id).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
             if (!res.ok) return notify(res.error, 'error')
-            setSecret({ name: u.name, password: res.temporaryPassword })
+            setSecret({ name: u.name, email: u.email, password: res.temporaryPassword })
             void load()
           }}
         />
       )}
-      {secret && <TemporaryPassword name={secret.name} password={secret.password} onClose={() => setSecret(null)} />}
+      {secret && <TemporaryPassword name={secret.name} email={secret.email} password={secret.password} onClose={() => setSecret(null)} />}
     </div>
   )
 }
 
-function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (name: string, password: string) => void }) {
+function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (name: string, email: string, password: string) => void }) {
   const [form, setForm] = useState({ email: '', name: '', title: '', role: 'contributeur' as Role, isAdmin: false })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -219,7 +219,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
     const res = await usersApi.create(form).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
     setBusy(false)
     if (!res.ok) return setError(res.error)
-    onCreated(form.name, res.temporaryPassword)
+    onCreated(form.name, form.email, res.temporaryPassword)
   }
 
   return (
@@ -308,34 +308,46 @@ function OrganizationCard({ organization, onSaved }: { organization: { name: str
   )
 }
 
-function TemporaryPassword({ name, password, onClose }: { name: string; password: string; onClose: () => void }) {
-  const [copied, setCopied] = useState(false)
+function TemporaryPassword({ name, email, password, onClose }: { name: string; email: string; password: string; onClose: () => void }) {
+  const [copy, setCopy] = useState<'idle' | 'done' | 'failed'>('idle')
+
+  const doCopy = async () => {
+    const field = document.getElementById('temp-password') as HTMLInputElement | null
+    try {
+      await navigator.clipboard.writeText(password)
+      return setCopy('done')
+    } catch {
+      // Presse-papiers refusé par le navigateur : copie par sélection.
+    }
+    field?.select()
+    setCopy(field && document.execCommand('copy') ? 'done' : 'failed')
+  }
+
   return (
     <Modal title="Mot de passe temporaire" onClose={onClose} size="sm">
       <p className="small" style={{ marginBottom: 12 }}>
-        Transmettez ce mot de passe à <strong>{name}</strong> par un canal sûr. Il ne sera plus affiché. À la première connexion, il devra être changé et la
-        double authentification configurée.
+        Transmettez ces identifiants à <strong>{name}</strong> par un canal sûr. Le mot de passe ne sera plus affiché. À la première connexion, il devra
+        être changé et la double authentification configurée.
       </p>
-      <label htmlFor="temp-password" className="sr-only">
+      <dl className="credentials">
+        <dt>Identifiant</dt>
+        <dd className="mono">{email}</dd>
+      </dl>
+      <label htmlFor="temp-password" className="small">
         Mot de passe temporaire
       </label>
       <input id="temp-password" className="input mono" readOnly value={password} onFocus={(e) => e.target.select()} />
+      {copy === 'failed' && (
+        <p className="small" role="alert" style={{ marginTop: 8, color: 'var(--error)' }}>
+          Copie impossible dans ce navigateur : le mot de passe est sélectionné, copiez-le avec Ctrl+C (Cmd+C sur Mac).
+        </p>
+      )}
       <div className="form-actions">
-        <button
-          className="btn btn--secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(password)
-              setCopied(true)
-            } catch {
-              ;(document.getElementById('temp-password') as HTMLInputElement | null)?.select()
-            }
-          }}
-        >
-          {copied ? 'Copié' : 'Copier'}
+        <button className="btn btn--secondary" onClick={() => void doCopy()}>
+          {copy === 'done' ? 'Copié' : 'Copier'}
         </button>
         <button className="btn btn--primary" onClick={onClose}>
-          J’ai transmis le mot de passe
+          J’ai transmis les identifiants
         </button>
       </div>
     </Modal>
