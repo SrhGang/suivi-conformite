@@ -54,7 +54,15 @@ case "${1:-}" in
       rmdir secrets
       echo "./secrets en clair supprimé"
     fi
-    echo "Ajoutez SECRETS_DIR=/run/conformite dans .env puis installez ops/systemd/conformite.service."
+    # Docker lira désormais les secrets déchiffrés en mémoire par le service systemd.
+    if [ -f .env ] && grep -q '^SECRETS_DIR=' .env; then
+      sed -i 's#^SECRETS_DIR=.*#SECRETS_DIR=/run/conformite#' .env
+    elif [ -f .env ] && grep -q '^#SECRETS_DIR=' .env; then
+      sed -i 's#^\#SECRETS_DIR=.*#SECRETS_DIR=/run/conformite#' .env
+    else
+      echo 'SECRETS_DIR=/run/conformite' >> .env
+    fi
+    echo ".env : SECRETS_DIR=/run/conformite activé. Installez ensuite ops/systemd/conformite.service."
     ;;
 
   show)
