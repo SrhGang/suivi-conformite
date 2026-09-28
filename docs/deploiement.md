@@ -147,6 +147,25 @@ Ensuite, un assistant s'ouvre à la première connexion :
 
 En cas de perte d'accès de tous les administrateurs : `docker compose exec api node dist/cli.js grant-admin --email E`.
 
+### Invitations par e-mail (recommandé)
+
+Sans configuration, la création d'un compte affiche un mot de passe temporaire que l'administrateur transmet lui-même. Avec un relais SMTP, l'utilisateur reçoit à la place un **lien à usage unique, valable 24 h**, pour choisir son mot de passe puis configurer la double authentification. L'administrateur ne voit jamais le mot de passe. « Réinitialiser l'accès » envoie de même un lien par e-mail.
+
+1. Chez un fournisseur d'envoi (Resend, Brevo, Scaleway TEM, Microsoft 365…), déclarez le domaine expéditeur et ajoutez les enregistrements DNS qu'il indique (SPF, DKIM, et DMARC `v=DMARC1; p=none;` pour commencer). Créez une clé limitée à l'envoi.
+2. Dans `.env` :
+   ```
+   SMTP_HOST=smtp.resend.com
+   SMTP_PORT=587
+   SMTP_USER=resend
+   SMTP_FROM=Conformité <no-reply@votre-domaine.fr>
+   INVITE_ACCESS_NOTE=Installez Tailscale et acceptez l'invitation au réseau avant d'ouvrir le lien.
+   ```
+   Le port 587 impose STARTTLS et le port 465 le TLS direct : rien ne part en clair. `INVITE_ACCESS_NOTE` explique à l'invité comment joindre l'application (Tailscale, OpenVPN, réseau interne…), puisque le lien n'est accessible que depuis ce réseau.
+3. Enregistrez la clé : `ops/secrets.sh smtp` (ou `sudo ops/secrets.sh smtp` avec systemd-creds), puis redémarrez.
+4. Dans **Administration › Utilisateurs**, cliquez sur **Tester l'envoi d'e-mail**.
+
+Mise à jour d'une installation existante : relancez une fois `ops/secrets.sh generate` (ou copiez à nouveau `ops/systemd/conformite.service` si vous utilisez systemd-creds) pour créer le secret `smtp_password`, même vide.
+
 ## 5. Sauvegardes
 
 ```bash
@@ -189,6 +208,7 @@ Testez une restauration dans une VM de recette au moins une fois par trimestre.
 
 - Comptes locaux, mots de passe hachés en Argon2id, verrouillage de 15 min après 5 échecs, limite de 10 requêtes/min sur l'authentification.
 - Double authentification TOTP obligatoire (secret chiffré en AES-256-GCM, rejeu interdit).
+- Invitations par e-mail : lien à usage unique valable 24 h, jeton stocké haché, transmis dans le fragment de l'URL (absent des journaux), mot de passe connu du seul utilisateur.
 - Sessions côté serveur (cookie `HttpOnly`, `Secure`, `SameSite=Strict`), expiration absolue et par inactivité, contrôle d'origine contre le CSRF.
 - Droits vérifiés côté serveur pour chaque action (responsable, contributeur, lecteur).
 - Journal d'audit en ajout seul (triggers + rôle SQL sans `UPDATE`/`DELETE`), chaîné par SHA-256 et vérifiable.

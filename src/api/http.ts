@@ -54,6 +54,10 @@ export const authApi = {
   totpEnroll: (code: string) => apiFetch<{ ok: true; stage: AuthStage }>('/api/auth/totp/enroll', { method: 'POST', json: { code } }),
   totpVerify: (code: string) => apiFetch<{ ok: true; stage: AuthStage }>('/api/auth/totp/verify', { method: 'POST', json: { code } }),
   logout: () => apiFetch<{ ok: true }>('/api/auth/logout', { method: 'POST', json: {} }),
+  checkInvitation: (token: string) =>
+    apiFetch<{ ok: true; name: string; email: string; purpose: 'invite' | 'reset' }>('/api/auth/invitation/check', { method: 'POST', json: { token } }),
+  acceptInvitation: (token: string, newPassword: string) =>
+    apiFetch<{ ok: true; stage: AuthStage }>('/api/auth/invitation/accept', { method: 'POST', json: { token, newPassword } }),
 }
 
 export interface ManagedUser {
@@ -70,16 +74,31 @@ export interface ManagedUser {
   locked: boolean
   last_login_at: string | null
   created_at: string
+  /** Expiration du lien d'invitation en attente, s'il y en a un. */
+  invite_expires_at: string | null
 }
 
+/** Résultat d'un envoi d'invitation ou de réinitialisation par e-mail. */
+export interface InvitationResult {
+  email: string
+  expiresAt: string
+  sent: boolean
+  error?: string
+}
+
+/** Avec SMTP : invitation par e-mail ; sans SMTP : mot de passe temporaire à transmettre. */
+export type AccessResult = { ok: true; invitation: InvitationResult; temporaryPassword?: undefined } | { ok: true; temporaryPassword: string; invitation?: undefined }
+
 export const usersApi = {
-  list: () => apiFetch<{ ok: true; users: ManagedUser[] }>('/api/users'),
+  list: () => apiFetch<{ ok: true; users: ManagedUser[]; smtpConfigured: boolean }>('/api/users'),
   create: (input: { email: string; name: string; title: string; role: ManagedUser['role']; isAdmin: boolean }) =>
-    apiFetch<{ ok: true; id: string; temporaryPassword: string }>('/api/users', { method: 'POST', json: input }),
+    apiFetch<AccessResult & { id: string }>('/api/users', { method: 'POST', json: input }),
   update: (id: string, changes: Partial<Pick<ManagedUser, 'name' | 'title' | 'role' | 'disabled'> & { isAdmin: boolean }>) =>
     apiFetch<{ ok: true }>(`/api/users/${encodeURIComponent(id)}`, { method: 'PATCH', json: changes }),
-  reset: (id: string) =>
-    apiFetch<{ ok: true; temporaryPassword: string }>(`/api/users/${encodeURIComponent(id)}/reset`, { method: 'POST', json: {} }),
+  reset: (id: string) => apiFetch<AccessResult>(`/api/users/${encodeURIComponent(id)}/reset`, { method: 'POST', json: {} }),
+  invite: (id: string) =>
+    apiFetch<{ ok: true; invitation: InvitationResult }>(`/api/users/${encodeURIComponent(id)}/invite`, { method: 'POST', json: {} }),
+  testSmtp: () => apiFetch<{ ok: true; sentTo: string }>('/api/admin/smtp/test', { method: 'POST', json: {} }),
   verifyAudit: () =>
     apiFetch<{ ok: true; report: { ok: boolean; count: number; brokenAt?: { seq: number; id: string; reason: string } } }>('/api/audit/verify'),
 }

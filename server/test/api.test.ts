@@ -13,6 +13,7 @@ import { buildApp } from '../src/app'
 import type { Config } from '../src/config'
 import { createPool, migrate, type Db } from '../src/db'
 import { verifyHistory } from '../src/history'
+import type { MailMessage, Mailer } from '../src/mailer'
 import { hashPassword } from '../src/security'
 
 const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL
@@ -35,6 +36,9 @@ const config: Config = {
   totpIssuer: 'Test',
   trustProxy: false,
   appSecret: 'x'.repeat(48),
+  smtp: null,
+  inviteTtlHours: 24,
+  inviteAccessNote: '',
 }
 
 let app: FastifyInstance
@@ -47,9 +51,10 @@ class Client {
   constructor(
     private readonly origin = ORIGIN,
     private readonly ip = '127.0.0.1',
+    private readonly target?: FastifyInstance,
   ) {}
   async req(method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, body?: unknown, headers: Record<string, string> = {}) {
-    const res = await app.inject({
+    const res = await (this.target ?? app).inject({
       method,
       url,
       remoteAddress: this.ip,
@@ -271,6 +276,89 @@ run('API (PostgreSQL)', () => {
     const details = state.json.state.history.map((h: { details: string }) => h.details).join('\n')
     expect(details).toMatch(/Denis Si <dsi@test.fr>, rôle responsable \+ administrateur/)
     expect(details).toMatch(/administrateur retiré/)
+  })
+
+  it('invite par e-mail : lien à usage unique, mot de passe choisi par l’utilisateur, puis MFA', async () => {
+    const sent: MailMessage[] = []
+    let failNext = false
+    const mailer: Mailer = {
+      async send(m) {
+        if (failNext) {
+          failNext = false
+          throw new Error('SMTP indisponible')
+        }
+        sent.push(m)
+      },
+    }
+    const smtpApp = await buildApp(db, { ...config, inviteAccessNote: 'Connectez-vous d’abord au VPN.' }, mailer)
+    try {
+      const a = new Client(ORIGIN, '10.0.1.1', smtpApp)
+      a.cookie = adm.cookie
+      const tokenOf = (m: MailMessage) => /\/invitation#([A-Za-z0-9_-]+)/.exec(m.text)![1]!
+
+      expect((await a.req('GET', '/api/users')).json.smtpConfigured).toBe(true)
+      const created = await a.req('POST', '/api/users', { email: 'consultant@externe.fr', name: 'Chloé Consultante', role: 'lecteur' })
+      expect(created.status).toBe(200)
+      expect(created.json.temporaryPassword).toBeUndefined()
+      expect(created.json.invitation).toMatchObject({ email: 'consultant@externe.fr', sent: true })
+      expect(sent).toHaveLength(1)
+      expect(sent[0]!.to).toBe('consultant@externe.fr')
+      expect(sent[0]!.text).toMatch(/Connectez-vous d’abord au VPN/)
+      expect(sent[0]!.text).toContain(`${ORIGIN}/invitation#`)
+      const token = tokenOf(sent[0]!)
+
+      // Aucune connexion par mot de passe avant l'acceptation.
+      const pending = await a.req('GET', '/api/users')
+      expect(pending.json.users.find((u: { id: string }) => u.id === created.json.id).invite_expires_at).not.toBeNull()
+
+      const invitee = new Client(ORIGIN, '10.0.1.2', smtpApp)
+      const check = await invitee.req('POST', '/api/auth/invitation/check', { token })
+      expect(check.json).toMatchObject({ ok: true, name: 'Chloé Consultante', purpose: 'invite' })
+      expect((await invitee.req('POST', '/api/auth/invitation/accept', { token, newPassword: 'court' })).status).toBe(400)
+      const accepted = await invitee.req('POST', '/api/auth/invitation/accept', { token, newPassword: 'Ma phrase de passe tres solide' })
+      expect(accepted.json).toMatchObject({ stage: 'totp_enroll' })
+      const setup = await invitee.req('GET', '/api/auth/totp/setup')
+      expect((await invitee.req('POST', '/api/auth/totp/enroll', { code: totpCode(setup.json.secret) })).json.stage).toBe('full')
+
+      // Le lien ne sert qu'une fois.
+      const reuse = await new Client(ORIGIN, '10.0.1.3', smtpApp).req('POST', '/api/auth/invitation/accept', { token, newPassword: 'Encore une autre phrase' })
+      expect(reuse.status).toBe(400)
+      expect((await a.req('POST', `/api/users/${created.json.id}/invite`, {})).status).toBe(400) // déjà activé
+
+      // Réinitialisation : lien par e-mail, sessions fermées, MFA à réenrôler.
+      const reset = await a.req('POST', `/api/users/${created.json.id}/reset`, {})
+      expect(reset.json.invitation.sent).toBe(true)
+      expect((await invitee.req('GET', '/api/state')).status).toBe(401)
+      const resetToken = tokenOf(sent[1]!)
+      expect(sent[1]!.subject).toMatch(/Réinitialisation/)
+      const again = await new Client(ORIGIN, '10.0.1.4', smtpApp).req('POST', '/api/auth/invitation/accept', {
+        token: resetToken,
+        newPassword: 'Nouvelle phrase de passe 2027',
+      })
+      expect(again.json.stage).toBe('totp_enroll')
+
+      // Lien expiré, puis renvoi d'invitation après un échec d'envoi.
+      failNext = true
+      const second = await a.req('POST', '/api/users', { email: 'presta@externe.fr', name: 'Paul Presta', role: 'contributeur' })
+      expect(second.json.invitation).toMatchObject({ sent: false })
+      const resent = await a.req('POST', `/api/users/${second.json.id}/invite`, {})
+      expect(resent.json.invitation.sent).toBe(true)
+      const lastToken = tokenOf(sent[sent.length - 1]!)
+      await admin.query(`UPDATE user_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = $1`, [second.json.id])
+      expect((await new Client(ORIGIN, '10.0.1.5', smtpApp).req('POST', '/api/auth/invitation/check', { token: lastToken })).status).toBe(400)
+
+      // E-mail de test vers l'administrateur connecté.
+      expect((await a.req('POST', '/api/admin/smtp/test', {})).json.sentTo).toBe('admin@test.fr')
+
+      // Journal : invitations tracées, jamais le jeton lui-même.
+      const history = (await a.req('GET', '/api/state')).json.state.history as { action: string; details: string }[]
+      const actions = history.map((h) => h.action)
+      expect(actions).toEqual(expect.arrayContaining(['Invitation envoyée', 'Invitation acceptée', 'Accès réinitialisé par e-mail', 'Échec d’envoi d’invitation', 'Invitation renvoyée']))
+      const all = history.map((h) => h.details).join('\n')
+      for (const t of [token, resetToken, lastToken]) expect(all).not.toContain(t)
+    } finally {
+      await smtpApp.close()
+    }
   })
 
   it('verrouille le compte après 5 échecs', async () => {

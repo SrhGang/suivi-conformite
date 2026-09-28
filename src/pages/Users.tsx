@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { setupApi, usersApi, type ManagedUser } from '../api/http'
+import { setupApi, usersApi, type AccessResult, type InvitationResult, type ManagedUser } from '../api/http'
 import { ConfirmDialog, EmptyState, Health, Modal } from '../components/ui'
 import { OrganizationFields, RolesHelp } from '../components/admin'
 import { ADMIN_ROLE, ROLES } from '../data/constants'
@@ -16,13 +16,15 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [resetting, setResetting] = useState<ManagedUser | null>(null)
-  const [secret, setSecret] = useState<{ name: string; email: string; password: string } | null>(null)
+  const [access, setAccess] = useState<{ name: string; email: string; result: AccessResult } | null>(null)
+  const [smtp, setSmtp] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const res = await usersApi.list()
       if (!res.ok) return setError(res.error)
       setUsers(res.users)
+      setSmtp(res.smtpConfigured)
     } catch {
       setError('Session expirée : reconnectez-vous.')
     }
@@ -50,6 +52,19 @@ export default function Users() {
     void load()
   }
 
+  const resend = async (u: ManagedUser) => {
+    const res = await usersApi.invite(u.id).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
+    if (!res.ok) return notify(res.error, 'error')
+    setAccess({ name: u.name, email: u.email, result: res })
+    void load()
+  }
+
+  const testSmtp = async () => {
+    const res = await usersApi.testSmtp().catch(() => ({ ok: false as const, error: 'Session expirée.' }))
+    if (!res.ok) return notify(res.error, 'error')
+    notify(`E-mail de test envoyé à ${res.sentTo}.`)
+  }
+
   return (
     <div className="page">
       <div className="page-head">
@@ -60,6 +75,11 @@ export default function Users() {
           </p>
         </div>
         <div className="page-head__actions">
+          {smtp && (
+            <button className="btn btn--secondary" onClick={() => void testSmtp()}>
+              Tester l’envoi d’e-mail
+            </button>
+          )}
           <button className="btn btn--primary" onClick={() => setCreating(true)}>
             + Nouveau compte
           </button>
@@ -69,6 +89,13 @@ export default function Users() {
       {error && (
         <div className="banner banner--error" role="alert">
           {error}
+        </div>
+      )}
+
+      {users && !smtp && (
+        <div className="banner banner--info small">
+          L’envoi d’e-mails n’est pas configuré : les nouveaux comptes reçoivent un mot de passe temporaire à transmettre vous-même. Renseignez SMTP_HOST
+          sur le serveur pour envoyer des invitations par e-mail.
         </div>
       )}
 
@@ -134,8 +161,12 @@ export default function Users() {
                         </label>
                       </td>
                       <td className="small">
-                        {u.must_change_password ? (
-                          <Health tone="warning">Mot de passe temporaire</Health>
+                        {u.must_change_password && u.invite_expires_at ? (
+                          <span title={`Lien valable jusqu’au ${formatDateTime(u.invite_expires_at)}`}>
+                            <Health tone="warning">Invitation envoyée</Health>
+                          </span>
+                        ) : u.must_change_password ? (
+                          <Health tone="warning">{smtp ? 'Accès non activé' : 'Mot de passe temporaire'}</Health>
                         ) : u.totp_enabled ? (
                           <Health tone="success">MFA active</Health>
                         ) : (
@@ -148,6 +179,11 @@ export default function Users() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {smtp && u.must_change_password && !u.disabled && (
+                          <button className="btn btn--ghost btn--sm" onClick={() => void resend(u)}>
+                            Renvoyer l’invitation
+                          </button>
+                        )}
                         <button className="btn btn--ghost btn--sm" onClick={() => setResetting(u)}>
                           Réinitialiser l’accès
                         </button>
@@ -177,10 +213,11 @@ export default function Users() {
 
       {creating && (
         <CreateUserDialog
+          smtp={smtp}
           onClose={() => setCreating(false)}
-          onCreated={(name, email, password) => {
+          onCreated={(name, email, result) => {
             setCreating(false)
-            setSecret({ name, email, password })
+            setAccess({ name, email, result })
             void load()
           }}
         />
@@ -188,7 +225,11 @@ export default function Users() {
       {resetting && (
         <ConfirmDialog
           title={`Réinitialiser l’accès de ${resetting.name}`}
-          message="Un nouveau mot de passe temporaire sera généré, la double authentification devra être réenrôlée et toutes les sessions de ce compte seront fermées."
+          message={
+            smtp
+              ? 'Un lien pour choisir un nouveau mot de passe sera envoyé par e-mail, la double authentification devra être réenrôlée et toutes les sessions de ce compte seront fermées.'
+              : 'Un nouveau mot de passe temporaire sera généré, la double authentification devra être réenrôlée et toutes les sessions de ce compte seront fermées.'
+          }
           confirmLabel="Réinitialiser"
           tone="danger"
           onClose={() => setResetting(null)}
@@ -197,17 +238,30 @@ export default function Users() {
             setResetting(null)
             const res = await usersApi.reset(u.id).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
             if (!res.ok) return notify(res.error, 'error')
-            setSecret({ name: u.name, email: u.email, password: res.temporaryPassword })
+            setAccess({ name: u.name, email: u.email, result: res })
             void load()
           }}
         />
       )}
-      {secret && <TemporaryPassword name={secret.name} email={secret.email} password={secret.password} onClose={() => setSecret(null)} />}
+      {access?.result.invitation && (
+        <InvitationSent name={access.name} invitation={access.result.invitation} onClose={() => setAccess(null)} />
+      )}
+      {access?.result.temporaryPassword && (
+        <TemporaryPassword name={access.name} email={access.email} password={access.result.temporaryPassword} onClose={() => setAccess(null)} />
+      )}
     </div>
   )
 }
 
-function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (name: string, email: string, password: string) => void }) {
+function CreateUserDialog({
+  smtp,
+  onClose,
+  onCreated,
+}: {
+  smtp: boolean
+  onClose: () => void
+  onCreated: (name: string, email: string, result: AccessResult) => void
+}) {
   const [form, setForm] = useState({ email: '', name: '', title: '', role: 'contributeur' as Role, isAdmin: false })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -219,7 +273,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
     const res = await usersApi.create(form).catch(() => ({ ok: false as const, error: 'Session expirée.' }))
     setBusy(false)
     if (!res.ok) return setError(res.error)
-    onCreated(form.name, form.email, res.temporaryPassword)
+    onCreated(form.name, form.email, res)
   }
 
   return (
@@ -265,7 +319,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
             Annuler
           </button>
           <button type="submit" className="btn btn--primary" disabled={busy}>
-            Créer le compte
+            {smtp ? 'Créer et envoyer l’invitation' : 'Créer le compte'}
           </button>
         </div>
       </form>
@@ -305,6 +359,29 @@ function OrganizationCard({ organization, onSaved }: { organization: { name: str
         </button>
       </div>
     </form>
+  )
+}
+
+function InvitationSent({ name, invitation, onClose }: { name: string; invitation: InvitationResult; onClose: () => void }) {
+  return (
+    <Modal title={invitation.sent ? 'Invitation envoyée' : 'Invitation non envoyée'} onClose={onClose} size="sm">
+      {invitation.sent ? (
+        <p className="small" style={{ marginBottom: 12 }}>
+          Un e-mail a été envoyé à <strong>{invitation.email}</strong>. {name} y trouvera un lien pour choisir son mot de passe, valable jusqu’au{' '}
+          {formatDateTime(invitation.expiresAt)} et utilisable une seule fois. La double authentification sera configurée juste après.
+        </p>
+      ) : (
+        <div className="banner banner--error small" role="alert">
+          {invitation.error ?? 'L’e-mail n’a pas pu être envoyé.'} Le compte est créé : utilisez « Renvoyer l’invitation » dans la liste.
+        </div>
+      )}
+      <p className="small muted">Aucun mot de passe ne vous est communiqué : seul l’utilisateur le connaît.</p>
+      <div className="form-actions">
+        <button className="btn btn--primary" onClick={onClose}>
+          Fermer
+        </button>
+      </div>
+    </Modal>
   )
 }
 

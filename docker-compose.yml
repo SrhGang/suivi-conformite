@@ -43,7 +43,15 @@ services:
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
       COOKIE_SECURE: 'true'
       TRUST_PROXY: 'true'
-    secrets: [app_db_password, owner_db_password, app_secret]
+      # Invitations par e-mail (facultatif : sans SMTP_HOST, mot de passe temporaire affiché à l'administrateur).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      INVITE_TTL_HOURS: ${INVITE_TTL_HOURS:-24}
+      INVITE_ACCESS_NOTE: ${INVITE_ACCESS_NOTE:-}
+    secrets: [app_db_password, owner_db_password, app_secret, smtp_password]
     volumes:
       - uploads:/data/uploads
     networks: [internal]
@@ -74,6 +82,8 @@ secrets:
     file: ${SECRETS_DIR:-./secrets}/app_db_password
   app_secret:
     file: ${SECRETS_DIR:-./secrets}/app_secret
+  smtp_password:
+    file: ${SECRETS_DIR:-./secrets}/smtp_password
 
 volumes:
   db-data:
