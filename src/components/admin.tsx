@@ -1,6 +1,8 @@
 /** Éléments partagés par la page Utilisateurs et l'assistant d'installation. */
+import { useState } from 'react'
 import { ADMIN_ROLE, ROLES } from '../data/constants'
-import type { Role } from '../types'
+import type { Organization, Role } from '../types'
+import { parseDomains } from '../utils/domains'
 
 const ROLE_IDS: Role[] = ['responsable', 'contributeur', 'lecteur']
 
@@ -25,14 +27,10 @@ export function RolesHelp() {
   )
 }
 
-/** Champs nom et secteur de l'organisme (page Utilisateurs et assistant d'installation). */
-export function OrganizationFields({
-  value,
-  onChange,
-}: {
-  value: { name: string; sector: string }
-  onChange: (v: { name: string; sector: string }) => void
-}) {
+/** Champs nom, secteur et domaines e-mail de l'organisme (page Utilisateurs et assistant d'installation). */
+export function OrganizationFields({ value, onChange }: { value: Organization; onChange: (v: Organization) => void }) {
+  // Saisie libre conservée telle quelle (virgules, espaces) ; la liste est normalisée à chaque frappe.
+  const [domainsText, setDomainsText] = useState((value.domains ?? []).join(', '))
   return (
     <>
       <div className="field">
@@ -57,6 +55,22 @@ export function OrganizationFields({
           onChange={(e) => onChange({ ...value, sector: e.target.value })}
           placeholder="Ex : Eau potable, entité essentielle NIS2"
         />
+      </div>
+      <div className="field">
+        <label htmlFor="org-domains">Domaines e-mail de l’organisme</label>
+        <input
+          id="org-domains"
+          className="input"
+          value={domainsText}
+          onChange={(e) => {
+            setDomainsText(e.target.value)
+            onChange({ ...value, domains: parseDomains(e.target.value) })
+          }}
+          placeholder="Ex : regie-eaux.fr, filiale.fr"
+        />
+        <span className="hint">
+          Les comptes créés avec une autre adresse (consultant, auditeur, prestataire) restent autorisés, mais sont signalés « Externe ».
+        </span>
       </div>
     </>
   )

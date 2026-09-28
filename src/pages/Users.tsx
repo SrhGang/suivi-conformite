@@ -4,8 +4,9 @@ import { ConfirmDialog, EmptyState, Health, Modal } from '../components/ui'
 import { OrganizationFields, RolesHelp } from '../components/admin'
 import { ADMIN_ROLE, ROLES } from '../data/constants'
 import { useCompliance } from '../store/ComplianceContext'
-import type { Role } from '../types'
+import type { Organization, Role } from '../types'
 import { formatDateTime } from '../utils/dates'
+import { emailDomain, isExternalEmail } from '../utils/domains'
 
 const ROLE_IDS: Role[] = ['responsable', 'contributeur', 'lecteur']
 
@@ -132,7 +133,14 @@ export default function Users() {
                         <strong>{u.name}</strong>
                         <div className="tiny muted">{u.title}</div>
                       </td>
-                      <td className="small">{u.email}</td>
+                      <td className="small">
+                        {u.email}
+                        {isExternalEmail(u.email, state.organization.domains) && (
+                          <span title="Adresse hors des domaines de l’organisme" style={{ marginLeft: 6 }}>
+                            <Health tone="neutral">Externe</Health>
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <label className="sr-only" htmlFor={`role-${u.id}`}>
                           Rôle de {u.name}
@@ -214,6 +222,7 @@ export default function Users() {
       {creating && (
         <CreateUserDialog
           smtp={smtp}
+          domains={state.organization.domains}
           onClose={() => setCreating(false)}
           onCreated={(name, email, result) => {
             setCreating(false)
@@ -255,10 +264,12 @@ export default function Users() {
 
 function CreateUserDialog({
   smtp,
+  domains,
   onClose,
   onCreated,
 }: {
   smtp: boolean
+  domains: string[] | undefined
   onClose: () => void
   onCreated: (name: string, email: string, result: AccessResult) => void
 }) {
@@ -291,6 +302,12 @@ function CreateUserDialog({
         <div className="field">
           <label htmlFor="user-email">E-mail *</label>
           <input id="user-email" className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          {form.email.includes('@') && emailDomain(form.email) && isExternalEmail(form.email, domains) && (
+            <span className="hint" role="status" style={{ color: 'var(--warning-dark)' }}>
+              Adresse externe à l’organisme ({domains!.join(', ')}). Le compte sera signalé « Externe » : vérifiez le rôle attribué (un auditeur externe
+              est en général Lecteur).
+            </span>
+          )}
         </div>
         <div className="field">
           <label htmlFor="user-title">Fonction</label>
@@ -327,11 +344,14 @@ function CreateUserDialog({
   )
 }
 
-function OrganizationCard({ organization, onSaved }: { organization: { name: string; sector: string }; onSaved: () => Promise<void> }) {
+function OrganizationCard({ organization, onSaved }: { organization: Organization; onSaved: () => Promise<void> }) {
   const [form, setForm] = useState(organization)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const dirty = form.name !== organization.name || form.sector !== organization.sector
+  const dirty =
+    form.name !== organization.name ||
+    form.sector !== organization.sector ||
+    (form.domains ?? []).join(',') !== (organization.domains ?? []).join(',')
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()

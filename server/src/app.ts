@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { addEvidence, can, loadStarterGaps } from '../../src/store/actions'
 import type { ComplianceState, EvidenceTypeId, Role, User } from '../../src/types'
+import { isExternalEmail, isValidDomain } from '../../src/utils/domains'
 import { ACTIONS } from './actions'
 import { registerAuth, requireAdmin, requireFull } from './auth'
 import type { Config } from './config'
@@ -16,7 +17,7 @@ import { logEvent, verifyHistory } from './history'
 import { invitationMessage, issueToken, testMessage, type TokenPurpose } from './invitations'
 import { createSmtpMailer, type Mailer } from './mailer'
 import { hashPassword, initialsOf, newId, newToken, temporaryPassword } from './security'
-import { completeSetup, ensureOrganization, getSetup, loadState, persistChanges, saveOrganization } from './state'
+import { completeSetup, ensureOrganization, getOrganization, getSetup, loadState, persistChanges, saveOrganization } from './state'
 
 const EVIDENCE_TYPES: EvidenceTypeId[] = ['capture', 'certificat', 'rapport', 'procedure', 'journal', 'autre']
 
@@ -162,17 +163,35 @@ export async function buildApp(
   /* Première installation et organisme (administrateur)            */
   /* -------------------------------------------------------------- */
 
-  const organizationSchema = z.object({ name: z.string().trim().min(2).max(160), sector: z.string().trim().max(200) }).strict()
+  const organizationSchema = z
+    .object({
+      name: z.string().trim().min(2).max(160),
+      sector: z.string().trim().max(200),
+      domains: z.array(z.string().trim().toLowerCase().refine(isValidDomain)).max(20).optional(),
+    })
+    .strict()
 
   app.put('/api/organization', async (req, reply) => {
     const auth = requireAdmin(req, reply)
     if (!auth) return
     const body = organizationSchema.safeParse(req.body)
-    if (!body.success) return reply.code(400).send({ ok: false, error: 'Le nom de l’organisme est obligatoire (2 caractères minimum).' })
+    if (!body.success) {
+      const badDomain = body.error.issues.some((i) => i.path[0] === 'domains')
+      return reply
+        .code(400)
+        .send({ ok: false, error: badDomain ? 'Domaine e-mail invalide (exemple : regie-eaux.fr).' : 'Le nom de l’organisme est obligatoire (2 caractères minimum).' })
+    }
     await withTx(db, async (tx) => {
       await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
-      await saveOrganization(tx, body.data)
-      await logEvent(tx, auth.id, 'Organisme modifié', `${body.data.name}${body.data.sector ? `, ${body.data.sector}` : ''}`)
+      const previous = await getOrganization(tx)
+      const org = { ...body.data, domains: [...new Set(body.data.domains ?? previous.domains ?? [])] }
+      await saveOrganization(tx, org)
+      await logEvent(
+        tx,
+        auth.id,
+        'Organisme modifié',
+        `${org.name}${org.sector ? `, ${org.sector}` : ''}${org.domains.length ? ` ; domaines : ${org.domains.join(', ')}` : ''}`,
+      )
     })
     return { ok: true }
   })
@@ -219,9 +238,7 @@ export async function buildApp(
   /* Invitations par e-mail                                         */
   /* -------------------------------------------------------------- */
 
-  const organizationName = async () =>
-    (await db.query<{ value: { name?: string } }>(`SELECT value FROM app_meta WHERE key = 'organization'`)).rows[0]?.value.name ??
-    config.organizationName
+  const organizationName = async () => (await getOrganization(db)).name
 
   /**
    * Envoie l'e-mail d'un jeton déjà enregistré (après validation de la transaction).
@@ -283,11 +300,12 @@ export async function buildApp(
     try {
       await withTx(db, async (tx) => {
         await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+        const external = isExternalEmail(email, (await getOrganization(tx)).domains)
         await tx.query(
           `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
           [id, email, name, initialsOf(name), title, role, isAdmin, temp ? await hashPassword(temp) : await unusablePasswordHash()],
         )
-        await logEvent(tx, auth.id, 'Compte créé', `${name} <${email}>, rôle ${describeRole(role, isAdmin)}`)
+        await logEvent(tx, auth.id, 'Compte créé', `${name} <${email}>${external ? ' (externe)' : ''}, rôle ${describeRole(role, isAdmin)}`)
         if (!temp) {
           issued = await issueToken(tx, id, 'invite', auth.id, config.inviteTtlHours)
           await logEvent(tx, auth.id, 'Invitation envoyée', `${name} <${email}>, lien valable ${config.inviteTtlHours} h`)

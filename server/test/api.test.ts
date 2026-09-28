@@ -186,6 +186,9 @@ run('API (PostgreSQL)', () => {
     const after = await resp.req('GET', '/api/state')
     expect(after.json.state.setupPending).toBeUndefined()
     expect(after.json.state.organization.name).toBe('Régie des eaux')
+    // Domaine proposé d'après l'e-mail du premier administrateur, conservé à l'enregistrement.
+    expect(after.json.state.organization.domains).toEqual(['test.fr'])
+    expect((await adm.req('PUT', '/api/organization', { name: 'Régie des eaux', sector: '', domains: ['pas un domaine'] })).status).toBe(400)
     const actions = after.json.state.history.map((h: { action: string }) => h.action)
     expect(actions).toEqual(expect.arrayContaining(['Organisme modifié', 'Confirmation', 'Installation terminée']))
   })
@@ -355,6 +358,8 @@ run('API (PostgreSQL)', () => {
       const actions = history.map((h) => h.action)
       expect(actions).toEqual(expect.arrayContaining(['Invitation envoyée', 'Invitation acceptée', 'Accès réinitialisé par e-mail', 'Échec d’envoi d’invitation', 'Invitation renvoyée']))
       const all = history.map((h) => h.details).join('\n')
+      // Adresse hors des domaines de l'organisme : signalée, pas bloquée.
+      expect(all).toContain('Chloé Consultante <consultant@externe.fr> (externe), rôle lecteur')
       for (const t of [token, resetToken, lastToken]) expect(all).not.toContain(t)
     } finally {
       await smtpApp.close()

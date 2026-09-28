@@ -153,6 +153,8 @@ Ensuite, un assistant s'ouvre à la première connexion :
 2. données de départ : partir de zéro, ou d'une liste de lacunes courantes pour une entité NIS2, marquées « à confirmer » ;
 3. création des comptes de l'équipe dans **Administration › Utilisateurs**, avec leur rôle : responsable validant, contributeur ou lecteur, et éventuellement administrateur.
 
+Les **domaines e-mail de l'organisme** (préremplis avec celui du premier administrateur, modifiables dans la carte Organisme) servent à repérer les comptes externes : une adresse d'un autre domaine (consultant, auditeur, prestataire) reste autorisée, mais un avertissement s'affiche à la création et le compte porte le badge « Externe », utile pour la revue des droits d'accès.
+
 En cas de perte d'accès de tous les administrateurs : `docker compose exec api node dist/cli.js grant-admin --email E`.
 
 ### Invitations par e-mail (recommandé)
@@ -171,6 +173,8 @@ Sans configuration, la création d'un compte affiche un mot de passe temporaire 
    Le port 587 impose STARTTLS et le port 465 le TLS direct : rien ne part en clair. `INVITE_ACCESS_NOTE` explique à l'invité comment joindre l'application (Tailscale, OpenVPN, réseau interne…), puisque le lien n'est accessible que depuis ce réseau.
 3. Enregistrez la clé : `ops/secrets.sh smtp` (ou `sudo ops/secrets.sh smtp` avec systemd-creds), puis redémarrez.
 4. Dans **Administration › Utilisateurs**, cliquez sur **Tester l'envoi d'e-mail**.
+
+En ligne de commande, `init` et `create-user` acceptent `--invite` : le lien est envoyé par e-mail au lieu d'afficher un mot de passe temporaire (si l'envoi échoue, le compte n'est pas créé et la commande peut être relancée).
 
 Mise à jour d'une installation existante : relancez une fois `ops/secrets.sh generate` (ou copiez à nouveau `ops/systemd/conformite.service` si vous utilisez systemd-creds) pour créer le secret `smtp_password`, même vide.
 

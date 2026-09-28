@@ -105,7 +105,7 @@ export const usersApi = {
 
 /** Première installation et informations de l'organisme (administrateur). */
 export const setupApi = {
-  saveOrganization: (organization: { name: string; sector: string }) =>
+  saveOrganization: (organization: { name: string; sector: string; domains?: string[] }) =>
     apiFetch<{ ok: true }>('/api/organization', { method: 'PUT', json: organization }),
   loadStarterGaps: () => apiFetch<{ ok: true; result: number }>('/api/setup/starter', { method: 'POST', json: {} }),
   complete: () => apiFetch<{ ok: true }>('/api/setup/complete', { method: 'POST', json: {} }),
