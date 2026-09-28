@@ -54,9 +54,17 @@ tailscale up --ssh            # --ssh : SSH via Tailscale, plus besoin du port 2
 tailscale ip -4               # IP 100.x.y.z de la VM
 ```
 
+Sans navigateur sur la VM (installation scriptée, ou plusieurs VM), utilisez une clé d'authentification créée dans la console Tailscale (Settings › Keys › Generate auth key, à usage unique de préférence) et nommez la machine directement :
+
+```bash
+sudo tailscale up --ssh --auth-key=<VOTRE_CLE_AUTH> --hostname="conformite"
+```
+
+La clé donne accès au tailnet : ne la laissez ni dans un script versionné ni dans l'historique du shell (préfixez la commande d'une espace, ou utilisez `--auth-key=file:/chemin/vers/cle`), et révoquez-la après usage si elle est réutilisable.
+
 Dans la console d'administration Tailscale :
 - activez **MagicDNS** et **HTTPS Certificates** (DNS › HTTPS Certificates) ;
-- renommez la machine, par exemple `conformite`. Son nom devient `conformite.<votre-tailnet>.ts.net` ;
+- renommez la machine, par exemple `conformite` (inutile si `--hostname` a été passé). Son nom devient `conformite.<votre-tailnet>.ts.net` ;
 - restreignez l'accès dans la politique d'accès (ACL) : seuls les utilisateurs de l'outil ont accès à `tcp:443` sur cette machine.
 
 Chaque utilisateur installe le client Tailscale sur son poste. Le plan gratuit Personal accepte 6 utilisateurs et un nombre illimité d'appareils.
