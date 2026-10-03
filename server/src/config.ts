@@ -61,12 +61,40 @@ export interface Config {
   trustProxy: boolean
   /** Secret applicatif : chiffre les secrets TOTP stockés en base (AES-256-GCM). */
   appSecret: string
+  /** Relais SMTP des invitations ; null : mot de passe temporaire affiché à l'administrateur. */
+  smtp: SmtpConfig | null
+  /** Durée de validité d'un lien d'invitation ou de réinitialisation. */
+  inviteTtlHours: number
+  /** Texte ajouté aux e-mails : comment joindre l'application (VPN, réseau interne…). */
+  inviteAccessNote: string
+}
+
+export interface SmtpConfig {
+  host: string
+  port: number
+  user: string
+  password: string
+  /** Expéditeur, par exemple « Conformité <no-reply@exemple.fr> ». */
+  from: string
 }
 
 /** URL propriétaire (migrations, CLI), ou à défaut l'URL applicative. */
 export function adminDatabaseUrl(): string {
   const adminUrl = process.env.DATABASE_ADMIN_URL
   return adminUrl ? withPassword(adminUrl, 'DATABASE_ADMIN_PASSWORD') : withPassword(env('DATABASE_URL'), 'DATABASE_PASSWORD')
+}
+
+/** Relais SMTP, activé dès que SMTP_HOST est renseigné. */
+function loadSmtp(): SmtpConfig | null {
+  const host = process.env.SMTP_HOST ?? ''
+  if (!host) return null
+  return {
+    host,
+    port: int('SMTP_PORT', 587),
+    user: process.env.SMTP_USER ?? '',
+    password: secret('SMTP_PASSWORD') ?? '',
+    from: env('SMTP_FROM'),
+  }
 }
 
 export function loadConfig(): Config {
@@ -89,5 +117,8 @@ export function loadConfig(): Config {
     totpIssuer: env('TOTP_ISSUER', 'Conformité ISO 27001'),
     trustProxy: bool('TRUST_PROXY', true),
     appSecret,
+    smtp: loadSmtp(),
+    inviteTtlHours: int('INVITE_TTL_HOURS', 24),
+    inviteAccessNote: process.env.INVITE_ACCESS_NOTE ?? '',
   }
 }

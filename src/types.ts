@@ -70,6 +70,8 @@ export interface User {
 export interface Organization {
   name: string
   sector: string
+  /** Domaines e-mail de l'organisme ; les autres adresses sont signalées comme externes. */
+  domains?: string[]
 }
 
 export interface Validation {

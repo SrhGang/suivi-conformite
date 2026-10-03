@@ -17,6 +17,9 @@ TimeoutStartSec=300
 LoadCredentialEncrypted=owner_db_password:/etc/credstore.encrypted/conformite.owner_db_password
 LoadCredentialEncrypted=app_db_password:/etc/credstore.encrypted/conformite.app_db_password
 LoadCredentialEncrypted=app_secret:/etc/credstore.encrypted/conformite.app_secret
+# Mot de passe SMTP facultatif (sudo ops/secrets.sh smtp) : vide si le fichier chiffré n'existe pas.
+SetCredential=smtp_password:
+LoadCredentialEncrypted=smtp_password:/etc/credstore.encrypted/conformite.smtp_password
 
 # /run est en mémoire : les secrets déchiffrés ne touchent jamais le disque
 # et sont effacés à l'arrêt du service.
@@ -28,7 +31,7 @@ RuntimeDirectoryMode=0700
 ExecStartPre=-/usr/bin/docker compose down
 # Si l'application n'écoute que sur l'IP Tailscale (BIND_ADDRESS), attend l'interface.
 ExecStartPre=/bin/sh -c 'ip link show tailscale0 > /dev/null 2>&1 || exit 0; for i in $(seq 60); do ip -4 addr show tailscale0 | grep -q inet && exit 0; sleep 1; done; exit 1'
-ExecStartPre=/bin/sh -c 'rm -rf /run/conformite/*; for n in owner_db_password app_db_password app_secret; do install -m 0444 "$CREDENTIALS_DIRECTORY/$n" "/run/conformite/$n"; done'
+ExecStartPre=/bin/sh -c 'rm -rf /run/conformite/*; for n in owner_db_password app_db_password app_secret smtp_password; do install -m 0444 "$CREDENTIALS_DIRECTORY/$n" "/run/conformite/$n"; done'
 ExecStart=/usr/bin/docker compose up -d --wait
 ExecStop=/usr/bin/docker compose down
 
