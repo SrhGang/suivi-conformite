@@ -11,6 +11,7 @@ RUN npm ci --no-audit --no-fund
 COPY server/package.json server/package-lock.json server/
 RUN cd server && npm ci --no-audit --no-fund
 COPY index.html tsconfig.json vite.config.ts ./
+COPY public public
 COPY src src
 COPY server server
 # Frontend branché sur l'API (connexion, PostgreSQL).
