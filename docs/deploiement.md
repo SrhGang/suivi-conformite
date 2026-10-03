@@ -26,7 +26,7 @@ Besoins de l'application : 2 vCPU, 2 à 4 Go de RAM, 20 Go de disque. L'outil co
 | **Hetzner Cloud CX23** (recommandé) | 2 vCPU, 4 Go, 40 Go, 20 To de trafic | ≈ 5,50 € / mois HT | Le moins cher. Facturation à l'heure, VM créée ou détruite en une minute, réseau privé entre VM, pare-feu, snapshots |
 | OVHcloud VPS-1 | 4 vCore, 8 Go, 75 Go | ≈ 7,80 € / mois HT | Société française. Facturation mensuelle, moins souple pour multiplier les VM |
 
-Chaque VM supplémentaire (recette, base séparée, supervision…) coûte le prix d'une CX23. À la création, choisissez Debian 12 ou Ubuntu 24.04, un datacenter européen (Nuremberg, Falkenstein, Helsinki) et votre clé SSH. Attachez un **pare-feu Hetzner** : TCP 22 le temps de l'installation, puis uniquement UDP 41641 (connexions directes Tailscale) une fois Tailscale en place. Sans Tailscale, gardez 22, 80 et 443. L'option de sauvegarde Hetzner (+20 % du prix de la VM) fait une image quotidienne de la VM.
+Chaque VM supplémentaire (recette, base séparée, supervision…) coûte le prix d'une CX23. À la création, choisissez Debian 12 ou Ubuntu 24.04, un datacenter européen (Nuremberg, Falkenstein, Helsinki) et votre clé SSH. Attachez un **pare-feu Hetzner** : TCP 22 le temps de l'installation, puis uniquement UDP 41641 (connexions directes Tailscale) une fois l'étape « Fermer le pare-feu » terminée. Sans Tailscale, gardez 22, 80 et 443. L'option de sauvegarde Hetzner (+20 % du prix de la VM) fait une image quotidienne de la VM.
 
 Les prix changent souvent : vérifiez-les avant de commander.
 
@@ -44,7 +44,12 @@ curl -fsSL https://get.docker.com | sh
 usermod -aG docker deploy
 ```
 
-Déconnectez-vous puis reconnectez-vous avec `deploy` : l'appartenance au groupe `docker` n'est prise en compte qu'à la connexion suivante (sinon : `permission denied ... docker.sock`).
+Déconnectez-vous puis reconnectez-vous avec `deploy` : l'appartenance au groupe `docker` n'est prise en compte qu'à la connexion suivante (sinon : `permission denied ... docker.sock`). Vérifiez aussitôt les droits de `deploy`, tant que la session root (ou la console de l'hébergeur) est encore disponible pour corriger :
+
+```bash
+groups      # doit contenir sudo et docker
+sudo -v     # doit demander le mot de passe puis rendre la main sans erreur
+```
 
 ### Tailscale (recommandé)
 
@@ -71,19 +76,11 @@ Chaque utilisateur installe le client Tailscale sur son poste. Le plan gratuit P
 
 > Les certificats `*.ts.net` sont publiés dans les journaux publics Certificate Transparency : le nom de la machine et celui du tailnet deviennent visibles. Choisissez des noms neutres.
 
-Pare-feu : n'autorisez que le tailnet. Avant de l'activer, reconnectez-vous par Tailscale (`ssh deploy@conformite`) pour ne pas perdre votre session. La console web Hetzner reste un accès de secours.
-
-```bash
-ufw default deny incoming
-ufw allow in on tailscale0
-ufw enable
-```
-
-Docker publie ses ports en contournant `ufw` : c'est `BIND_ADDRESS` (étape 3) qui garantit que l'application n'écoute que sur l'IP Tailscale.
+Le pare-feu ne se ferme qu'à la fin de l'étape 3, une fois l'application en service.
 
 ### Sans Tailscale (domaine public)
 
-Créez un enregistrement DNS `A`/`AAAA` vers l'IP publique, ouvrez 80 et 443 (`ufw allow 80,443/tcp`) et laissez `COMPOSE_FILE` et `BIND_ADDRESS` commentés dans `.env`.
+Créez un enregistrement DNS `A`/`AAAA` vers l'IP publique et laissez `COMPOSE_FILE` et `BIND_ADDRESS` commentés dans `.env`.
 
 ## 3. Installer l'application
 
@@ -137,6 +134,23 @@ docker compose up -d --build
 ```
 
 Les migrations de la base s'appliquent au démarrage de l'API.
+
+### Fermer le pare-feu
+
+À faire en dernier, connecté en `deploy` avec un `sudo` qui fonctionne (et par Tailscale avec l'option recommandée). Gardez une seconde session ouverte pendant l'opération : une erreur ici coupe l'accès à la VM.
+
+```bash
+# Tailscale : n'autoriser que le tailnet
+sudo ufw allow in on tailscale0
+# Domaine public : SSH et web
+# sudo ufw allow 22/tcp && sudo ufw allow 80,443/tcp
+sudo ufw default deny incoming
+sudo ufw enable
+```
+
+Ouvrez une **nouvelle** session `ssh deploy@conformite` et lancez `sudo -v`. Si tout répond, fermez l'ancienne session. Avec Tailscale, retirez seulement alors la règle TCP 22 du pare-feu de l'hébergeur et gardez UDP 41641. La console web de l'hébergeur reste un accès de secours.
+
+Docker publie ses ports en contournant `ufw` : c'est `BIND_ADDRESS` qui garantit que l'application n'écoute que sur l'IP Tailscale.
 
 ## 4. Créer le premier administrateur
 
