@@ -6,6 +6,8 @@ import type {
   ActionResult,
   ApiResult,
   Asset,
+  AssetImportItem,
+  AssetImportResult,
   AssetInput,
   ComplianceState,
   Evidence,
@@ -65,6 +67,7 @@ export interface ComplianceApi {
   archiveAsset: (id: string) => Async<Asset>
   restoreAsset: (id: string) => Async<Asset>
   linkGapAsset: (gapId: string, assetId: string, linked: boolean) => Async<Gap>
+  importAssets: (items: AssetImportItem[], updateExisting: boolean) => Async<AssetImportResult>
   /** Administrateur : active ou désactive les modules. */
   setModules: (modules: Settings['modules']) => Async<Settings>
   /** Démo uniquement : simulation de connexion sous un autre compte. */
@@ -170,6 +173,7 @@ const LOCAL_ACTIONS = {
   archiveAsset: (s: ComplianceState, u: User, id: string) => actions.setAssetArchived(s, u, id, true),
   restoreAsset: (s: ComplianceState, u: User, id: string) => actions.setAssetArchived(s, u, id, false),
   linkGapAsset: actions.linkGapAsset,
+  importAssets: actions.importAssets,
   setModules: actions.setModules,
 } satisfies Record<string, ActionFn>
 
@@ -362,6 +366,7 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
       archiveAsset: (id) => run('archiveAsset', id),
       restoreAsset: (id) => run('restoreAsset', id),
       linkGapAsset: (gapId, assetId, linked) => run('linkGapAsset', gapId, assetId, linked),
+      importAssets: (items, updateExisting) => run('importAssets', items, updateExisting),
       setModules: (modules) => run('setModules', modules),
       switchUser: (userId) => {
         if (!USE_API && stateRef.current) commitLocal({ ...stateRef.current, currentUserId: userId })

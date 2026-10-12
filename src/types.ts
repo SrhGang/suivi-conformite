@@ -158,6 +158,19 @@ export interface AssetInput {
   links?: string[]
 }
 
+/** Ligne d'import d'actifs : liaisons données par nom (actifs existants ou importés en même temps). */
+export interface AssetImportItem extends Omit<AssetInput, 'links'> {
+  links: string[]
+}
+
+export interface AssetImportResult {
+  created: number
+  updated: number
+  skipped: number
+  /** Noms de liaisons qui ne correspondent à aucun actif. */
+  unresolvedLinks: string[]
+}
+
 /** Modules activés par l'administrateur. */
 export interface Settings {
   modules: {

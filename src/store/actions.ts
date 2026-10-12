@@ -9,6 +9,8 @@ import { STARTER_DUE_MONTHS, STARTER_GAPS } from '../data/starterGaps'
 import type {
   ActionResult,
   Asset,
+  AssetImportItem,
+  AssetImportResult,
   AssetInput,
   ComplianceState,
   Counters,
@@ -550,6 +552,79 @@ export function linkGapAsset(state: ComplianceState, user: User, gapId: string, 
   const current = gap.assetIds ?? []
   const assetIds = linked ? [...new Set([...current, assetId])] : current.filter((id) => id !== assetId)
   return updateGap(state, user, gapId, { assetIds })
+}
+
+const sameName = (a: string, b: string) =>
+  a.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === b.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+/**
+ * Import d'actifs (CSV) en une seule opération : création, ou mise à jour des
+ * actifs de même nom si `updateExisting`, puis ajout des liaisons données par
+ * nom. Les liaisons existantes ne sont jamais retirées. Tout est refusé si une
+ * ligne est invalide.
+ */
+export function importAssets(state: ComplianceState, user: User, items: AssetImportItem[], updateExisting: boolean): ActionResult<AssetImportResult> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’importer des actifs.')
+  if (!items.length) return deny('Aucun actif à importer.')
+  for (const [i, item] of items.entries()) {
+    const errors = validateAssetInput(item)
+    if (hasErrors(errors)) return deny(`Ligne ${i + 1} invalide : ${Object.values(errors).join(' ')}`)
+    if (items.findIndex((x) => sameName(x.name, item.name)) !== i) return deny(`« ${item.name} » apparaît plusieurs fois dans l’import.`)
+  }
+  let assets = [...state.assets]
+  let counters = state.counters
+  const result: AssetImportResult = { created: 0, updated: 0, skipped: 0, unresolvedLinks: [] }
+  const touched: string[] = []
+  for (const item of items) {
+    const existing = assets.find((a) => sameName(a.name, item.name))
+    const fields = {
+      name: item.name.trim(),
+      type: item.type,
+      role: item.role?.trim() ?? '',
+      zone: item.zone,
+      criticality: item.criticality,
+      owner: item.owner ?? '',
+      description: item.description?.trim() ?? '',
+    }
+    if (existing) {
+      if (!updateExisting) {
+        result.skipped++
+        continue
+      }
+      assets = assets.map((a) => (a.id === existing.id ? { ...a, ...fields, updatedAt: now(), updatedBy: user.id } : a))
+      touched.push(existing.id)
+      result.updated++
+    } else {
+      const [id, next] = nextId({ ...state, counters }, 'asset', 'ACT')
+      counters = next
+      assets.push({ id, ...fields, links: [], position: null, createdAt: now(), createdBy: user.id, updatedAt: now(), updatedBy: user.id, archived: false })
+      touched.push(id)
+      result.created++
+    }
+  }
+  // Liaisons par nom, réciproques, ajoutées aux liaisons existantes.
+  for (const item of items) {
+    const self = assets.find((a) => sameName(a.name, item.name))
+    if (!self || !touched.includes(self.id)) continue
+    for (const linkName of item.links) {
+      const other = assets.find((a) => sameName(a.name, linkName))
+      if (!other || other.id === self.id) {
+        if (!other && !result.unresolvedLinks.includes(linkName)) result.unresolvedLinks.push(linkName)
+        continue
+      }
+      assets = assets.map((a) =>
+        a.id === self.id && !a.links.includes(other.id)
+          ? { ...a, links: [...a.links, other.id] }
+          : a.id === other.id && !a.links.includes(self.id)
+            ? { ...a, links: [...a.links, self.id] }
+            : a,
+      )
+    }
+  }
+  if (!result.created && !result.updated) return ok(state, result)
+  const parts = [`${result.created} créé${result.created > 1 ? 's' : ''}`, `${result.updated} mis à jour`]
+  if (result.skipped) parts.push(`${result.skipped} ignoré${result.skipped > 1 ? 's' : ''} (déjà présents)`)
+  return ok(withHistory({ ...state, counters, assets }, user, null, 'Import d’actifs', `${parts.join(', ')}.`), result)
 }
 
 /** Active ou désactive les modules (administrateur). Désactiver ne supprime aucune donnée. */

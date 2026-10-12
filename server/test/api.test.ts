@@ -253,6 +253,16 @@ run('API (PostgreSQL)', () => {
     expect((await contrib.action('moveAsset', vpnId, { x: 300, y: 120 })).status).toBe(200)
     expect((await contrib.action('linkGapAsset', gapId, vpnId, true)).status).toBe(200)
 
+    // Import CSV (déjà analysé côté client) : revalidé strictement par le serveur.
+    const imported = await contrib.action(
+      'importAssets',
+      [{ name: 'Switch cœur', type: 'switch', zone: 'serveurs', criticality: 'haute', links: ['VPN', 'Absent'] }],
+      false,
+    )
+    expect(imported.json.result).toMatchObject({ created: 1, updated: 0, unresolvedLinks: ['Absent'] })
+    expect((await contrib.action('importAssets', [{ name: 'Z', type: 'ordinateur', zone: 'dmz', criticality: 'basse', links: [] }], false)).status).toBe(400)
+    expect((await adm.action('importAssets', [{ name: 'Z', type: 'poste', zone: 'dmz', criticality: 'basse', links: [] }], false)).status).toBe(400)
+
     // Relecture depuis la base : persistance, réciprocité des liaisons, rattachement.
     const st = (await resp.req('GET', '/api/state')).json.state
     const fwSaved = st.assets.find((a: { id: string }) => a.id === fw.json.result.id)
@@ -263,6 +273,8 @@ run('API (PostgreSQL)', () => {
     const actions = st.history.map((h: { action: string }) => h.action)
     expect(actions).toEqual(expect.arrayContaining(['Modules modifiés', 'Actif créé']))
     expect(actions.filter((a: string) => a === 'Actif créé')).toHaveLength(2)
+    expect(actions).toContain('Import d’actifs')
+    expect(st.assets.find((a: { name: string }) => a.name === 'Switch cœur').links).toEqual([vpnId])
   })
 
   it('refuse les champs non autorisés (pas de contournement du statut)', async () => {

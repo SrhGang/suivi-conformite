@@ -54,6 +54,19 @@ const assetInput = z
   })
   .strict()
 
+const assetImportItem = z
+  .object({
+    name: text(160).refine((v) => v.trim().length > 0, 'Nom obligatoire'),
+    type: assetType,
+    role: text(200).optional(),
+    zone,
+    criticality,
+    owner: z.union([id, z.literal('')]).optional(),
+    description: text(2000).optional(),
+    links: z.array(text(160)).max(50),
+  })
+  .strict()
+
 const position = z.object({ x: z.number().finite().min(-10000).max(10000), y: z.number().finite().min(-10000).max(10000) }).strict().nullable()
 
 const remediationInput = z
@@ -114,6 +127,7 @@ export const ACTIONS: Record<string, Handler> = {
   moveAsset: action(z.tuple([assetId, position]), A.moveAsset),
   archiveAsset: action(z.tuple([assetId]), (s, u, aid) => A.setAssetArchived(s, u, aid, true)),
   restoreAsset: action(z.tuple([assetId]), (s, u, aid) => A.setAssetArchived(s, u, aid, false)),
+  importAssets: action(z.tuple([z.array(assetImportItem).min(1).max(500), z.boolean()]), A.importAssets),
   linkGapAsset: action(z.tuple([id, assetId, z.boolean()]), A.linkGapAsset),
   setModules: action(z.tuple([z.object({ cartographie: z.boolean() }).strict()]), A.setModules),
 }

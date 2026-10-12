@@ -2858,3 +2858,16 @@ fieldset.field {
   flex-wrap: wrap;
   gap: 6px;
 }
+.text-error {
+  color: var(--error);
+}
+.import-preview {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-sm);
+}
+.import-preview .table tr.is-error td {
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+}

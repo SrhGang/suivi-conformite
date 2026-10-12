@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import AssetForm from '../components/AssetForm'
+import AssetImport from '../components/AssetImport'
 import Icon from '../components/Icon'
 import { ConfirmDialog, CriticalityBadge, EmptyState, Health, Progress, RemStatusBadge, StatusBadge } from '../components/ui'
 import { ASSET_TYPE_BY_ID, ASSET_TYPES, ZONE_BY_ID, ZONES } from '../data/assets'
 import { useCompliance } from '../store/ComplianceContext'
 import type { Asset, ZoneId } from '../types'
+import { assetsToCsv } from '../utils/assetCsv'
+import { toISODate } from '../utils/dates'
+import { download } from '../utils/report'
 import { applyParamChanges } from '../utils/searchParams'
 import { assetHealth, gapProgress, gapsOfAsset, isOpen, type AssetHealth } from '../utils/compliance'
 
@@ -87,6 +91,7 @@ export default function Cartographie() {
   const [type, setType] = useState('')
   const [health, setHealth] = useState('')
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const select = useCallback((id: string | null) => setParams((p) => applyParamChanges(p, { actif: id }), { replace: true }), [setParams])
   const setView = (v: 'carte' | 'liste') => setParams((p) => applyParamChanges(p, { vue: v === 'liste' ? 'liste' : null }), { replace: true })
@@ -140,6 +145,18 @@ export default function Cartographie() {
               Liste
             </button>
           </div>
+          <button
+            className="btn btn--secondary"
+            disabled={!assets.length}
+            onClick={() => download(`actifs-${toISODate(new Date())}.csv`, assetsToCsv(state), 'text/csv;charset=utf-8')}
+          >
+            Exporter CSV
+          </button>
+          {can('edit') && (
+            <button className="btn btn--secondary" onClick={() => setImporting(true)}>
+              Importer CSV
+            </button>
+          )}
           {can('edit') && (
             <button className="btn btn--accent" onClick={() => setCreating(true)}>
               + Nouvel actif
@@ -195,12 +212,14 @@ export default function Cartographie() {
       {!assets.length && (
         <div className="card" style={{ marginTop: 16 }}>
           <EmptyState icon="map" title="Aucun actif pour l’instant">
-            Ajoutez vos serveurs, équipements réseau, applications et fournisseurs, puis rattachez-leur les lacunes qui les concernent.
+            Ajoutez vos serveurs, équipements réseau, applications et fournisseurs un par un, ou importez votre inventaire existant (bouton « Importer
+            CSV »), puis rattachez-leur les lacunes qui les concernent.
           </EmptyState>
         </div>
       )}
 
       {creating && <AssetForm onClose={() => setCreating(false)} onSaved={(a) => select(a.id)} />}
+      {importing && <AssetImport onClose={() => setImporting(false)} />}
     </div>
   )
 }
