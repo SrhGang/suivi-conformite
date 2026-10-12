@@ -161,7 +161,7 @@ async function main() {
             passwords.push(`${email} (${u.role}${u.isAdmin ? ', administrateur' : ''}) : ${temp}`)
           }
           await ensureOrganization(tx, demo.organization)
-          const empty: ComplianceState = { ...(await loadState(tx, 'u1')), gaps: [], remediations: [], evidence: [], history: [], milestones: [] }
+          const empty: ComplianceState = { ...(await loadState(tx, 'u1')), gaps: [], remediations: [], evidence: [], history: [], milestones: [], assets: [] }
           await persistChanges(tx, empty, { ...demo, users: empty.users })
           await completeSetup(tx, 'u1')
           console.log('Données de démonstration chargées. Comptes créés :')

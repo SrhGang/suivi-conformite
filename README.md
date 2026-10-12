@@ -52,6 +52,7 @@ Déploiement sur une VM (Tailscale, secrets chiffrés avec systemd-creds, Docker
 | `/lacunes` | Inventaire | Recherche plein texte, filtres (criticité, thème, statut, NIS2, en retard, archivées), tri par colonne, pagination par 20, menu Dupliquer / Archiver / Restaurer, export CSV. Les filtres sont conservés dans l'URL |
 | `/lacunes/:id` | Détail | Onglets Détails / Remédiations / Preuves & validation / Historique, statut enregistré automatiquement, panneau de métadonnées, édition, duplication, archivage, revue périodique |
 | `/roadmap` | Roadmap | Vue Gantt (déplacer une barre ou étirer son bord droit pour changer les dates, jalons, ligne « aujourd'hui », périodes 6/12/18 mois ou tout) et vue Kanban (glisser-déposer entre À faire, En cours, Bloqué et Validé) |
+| `/cartographie` | Cartographie | Module activable par l'administrateur. Carte interactive de l'infrastructure par zones (Internet, DMZ, serveurs, bureautique, industriel, cloud, tiers) : chaque actif prend la couleur de ses lacunes (rouge : critique ou haute non traitée, orange : en cours, vert : validées). Clic : lacunes, remédiations, preuves et liaisons. Zoom, déplacement, glisser-déposer, vue liste accessible |
 | `/referentiel` | Référentiel | Les 93 mesures de l'annexe A, l'état de chacune et la couverture des exigences NIS2 (art. 20, 21.2 a à j, 23) |
 | `/utilisateurs` | Utilisateurs et rôles | Production uniquement, administrateur : création de comptes, rôles, désactivation, réinitialisation de l'accès, informations de l'organisme |
 
@@ -68,6 +69,7 @@ Déploiement sur une VM (Tailscale, secrets chiffrés avec systemd-creds, Docker
   - Contributeur : création et mise à jour, mais pas de validation, d'archivage ni de revue.
   - Lecteur : consultation et export uniquement.
   - Administrateur (production) : gestion des comptes, des rôles et de l'organisme. Il se cumule avec un rôle métier ; par séparation des tâches (ISO 27001 A.5.3), un administrateur ne peut pas modifier ses propres droits.
+- **Modules** : un seul produit, deux formules. L'administrateur choisit « Suivi classique » ou « Suivi avec cartographie interactive » à l'installation et peut changer à tout moment ; désactiver la cartographie la masque sans supprimer de données. Une lacune peut être rattachée à un ou plusieurs actifs.
 - **Première installation** (production) : le premier administrateur est créé en ligne de commande (`init`). À sa première connexion, un assistant demande le nom de l'organisme et propose de partir de zéro ou d'une liste de lacunes courantes pour une entité NIS2, marquées « à confirmer ». Chaque utilisateur voit ensuite un guide de démarrage adapté à son rôle (bouton « ? » de l'en-tête).
 
 ## Structure

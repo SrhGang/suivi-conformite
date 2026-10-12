@@ -234,6 +234,37 @@ run('API (PostgreSQL)', () => {
     expect(validated.json.result.validation.by).toBe('u_resp')
   })
 
+  it('cartographie : module, actifs, liaisons et lacunes rattachées', async () => {
+    // Module désactivé par défaut ; seul l'administrateur le change.
+    expect((await resp.req('GET', '/api/state')).json.state.settings.modules.cartographie).toBe(false)
+    expect((await resp.action('setModules', { cartographie: true })).status).toBe(400)
+    expect((await adm.action('setModules', { cartographie: true })).status).toBe(200)
+
+    const fw = await contrib.action('createAsset', { name: 'Pare-feu', type: 'parefeu', zone: 'dmz', criticality: 'critique' })
+    expect(fw.status).toBe(200)
+    const vpn = await contrib.action('createAsset', { name: 'VPN', type: 'serveur', zone: 'dmz', criticality: 'critique', links: [fw.json.result.id] })
+    const vpnId = vpn.json.result.id as string
+    // Champ inconnu refusé, identifiant mal formé refusé.
+    expect((await contrib.action('createAsset', { name: 'X', type: 'poste', zone: 'dmz', criticality: 'basse', ip: '10.0.0.1' })).status).toBe(400)
+    expect((await contrib.action('moveAsset', 'pas-un-actif', { x: 1, y: 2 })).status).toBe(400)
+    // Le lecteur ne peut rien modifier ; l'administrateur (lecteur métier) non plus.
+    expect((await adm.action('createAsset', { name: 'Y', type: 'poste', zone: 'bureautique', criticality: 'basse' })).status).toBe(400)
+
+    expect((await contrib.action('moveAsset', vpnId, { x: 300, y: 120 })).status).toBe(200)
+    expect((await contrib.action('linkGapAsset', gapId, vpnId, true)).status).toBe(200)
+
+    // Relecture depuis la base : persistance, réciprocité des liaisons, rattachement.
+    const st = (await resp.req('GET', '/api/state')).json.state
+    const fwSaved = st.assets.find((a: { id: string }) => a.id === fw.json.result.id)
+    const vpnSaved = st.assets.find((a: { id: string }) => a.id === vpnId)
+    expect(fwSaved.links).toContain(vpnId)
+    expect(vpnSaved.position).toEqual({ x: 300, y: 120 })
+    expect(st.gaps.find((g: { id: string }) => g.id === gapId).assetIds).toEqual([vpnId])
+    const actions = st.history.map((h: { action: string }) => h.action)
+    expect(actions).toEqual(expect.arrayContaining(['Modules modifiés', 'Actif créé']))
+    expect(actions.filter((a: string) => a === 'Actif créé')).toHaveLength(2)
+  })
+
   it('refuse les champs non autorisés (pas de contournement du statut)', async () => {
     const res = await contrib.action('updateGap', gapId, { title: 'Nouveau titre', status: 'non_traitee' })
     expect(res.status).toBe(400)
