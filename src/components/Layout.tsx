@@ -52,14 +52,13 @@ function useBreadcrumbs(): Crumb[] {
     if (pathname === '/roadmap')
       return [{ label: 'Plan d’action' }, { label: new URLSearchParams(search).get('vue') === 'kanban' ? 'Tableau Kanban' : 'Roadmap' }]
     if (pathname === '/referentiel') return [{ label: 'Conformité' }, { label: 'Référentiel ISO ↔ NIS2' }]
-    if (pathname === '/cartographie') return [{ label: 'Conformité' }, { label: 'Cartographie' }]
     if (pathname === '/utilisateurs') return [{ label: 'Administration' }, { label: 'Utilisateurs' }]
     return [{ label: 'Page introuvable' }]
   }, [pathname, search, state?.gaps])
 }
 
 export default function Layout() {
-  const { mode, state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can, logout, setModules } = useComplianceShell()
+  const { mode, state, status, loadError, retry, currentUser, switchUser, resetDemo, importData, notify, can, logout } = useComplianceShell()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const crumbs = useBreadcrumbs()
@@ -137,7 +136,6 @@ export default function Layout() {
       icon: 'shield',
       items: [
         { to: '/lacunes', label: 'Lacunes', icon: 'list', count: openGaps },
-        ...(state?.settings.modules.cartographie ? [{ to: '/cartographie', label: 'Cartographie', icon: 'map' as const }] : []),
         { to: '/referentiel', label: 'Référentiel ISO ↔ NIS2', icon: 'book' },
       ],
     },
@@ -180,18 +178,6 @@ export default function Layout() {
               disabled: !can('admin'),
               title: !can('admin') ? 'Réservé à l’administrateur' : undefined,
               onClick: () => fileRef.current?.click(),
-            },
-            {
-              label: `Cartographie : ${state?.settings.modules.cartographie ? 'activée' : 'désactivée'}`,
-              icon: 'map',
-              disabled: !can('admin'),
-              title: can('admin') ? 'Activer ou désactiver le module' : 'Réservé à l’administrateur (Bruno Leroy en démo)',
-              onClick: async () => {
-                const on = !state?.settings.modules.cartographie
-                const r = await setModules({ cartographie: on })
-                if (r.ok) notify(on ? 'Module cartographie activé.' : 'Module cartographie désactivé (données conservées).')
-                else notify(r.error, 'error')
-              },
             },
             { label: 'Réinitialiser la démo', icon: 'refresh', onClick: () => setConfirmReset(true) },
           ],

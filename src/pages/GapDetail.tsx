@@ -304,8 +304,6 @@ export default function GapDetail() {
 }
 
 function DetailsTab({ gap }: { gap: Gap }) {
-  const { state } = useCompliance()
-  const assets = (gap.assetIds ?? []).map((id) => state.assets.find((a) => a.id === id)).filter((a) => !!a)
   return (
     <dl className="dl">
       <dt>Description</dt>
@@ -345,24 +343,6 @@ function DetailsTab({ gap }: { gap: Gap }) {
       </dd>
       <dt>Impact potentiel</dt>
       <dd>{gap.impact || <span className="muted">Non renseigné</span>}</dd>
-      {state.settings.modules.cartographie && (
-        <>
-          <dt>Actifs concernés</dt>
-          <dd>
-            {assets.length ? (
-              <span className="asset-chips">
-                {assets.map((a) => (
-                  <Link key={a.id} className="chip chip--button" to={`/cartographie?actif=${a.id}`}>
-                    {a.name}
-                  </Link>
-                ))}
-              </span>
-            ) : (
-              <span className="muted">Aucun : rattachez-les depuis la cartographie ou en modifiant la lacune.</span>
-            )}
-          </dd>
-        </>
-      )}
       <dt>Délai de résolution</dt>
       <dd>
         {formatDate(gap.dueDate)} <span className="small muted">({relativeDue(gap.dueDate)})</span>

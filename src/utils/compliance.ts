@@ -1,6 +1,6 @@
 import { CRITICALITIES, CRITICALITY_BY_ID } from '../data/constants'
 import { ISO_CONTROLS, THEMES, themeOfControls } from '../data/isoControls'
-import type { Asset, CriticalityId, Evidence, Gap, ISODate, Remediation, Theme, ThemeId, User } from '../types'
+import type { CriticalityId, Evidence, Gap, ISODate, Remediation, Theme, ThemeId, User } from '../types'
 import { addMonths, diffDays, today } from './dates'
 
 /**
@@ -166,28 +166,4 @@ export const priorityAlerts = (gaps: Gap[], remediations: Remediation[], ref: IS
     }
   }
   return alerts.sort((a, b) => b.severity - a.severity)
-}
-
-/* ------------------------------------------------------------------ */
-/* Cartographie                                                        */
-/* ------------------------------------------------------------------ */
-
-/** État d'un actif d'après les lacunes qui le concernent. */
-export type AssetHealth = 'critical' | 'warning' | 'ok' | 'unknown'
-
-export const gapsOfAsset = (asset: Asset, gaps: Gap[]): Gap[] => gaps.filter((g) => !g.archived && g.assetIds?.includes(asset.id))
-
-/**
- * - critical : une lacune critique ou haute non traitée ;
- * - warning : d'autres lacunes ouvertes (en cours, corrigées, moyennes ou basses) ;
- * - ok : toutes ses lacunes sont validées ;
- * - unknown : aucune lacune rattachée.
- */
-export const assetHealth = (asset: Asset, gaps: Gap[]): AssetHealth => {
-  const linked = gapsOfAsset(asset, gaps)
-  if (!linked.length) return 'unknown'
-  const open = linked.filter(isOpen)
-  if (!open.length) return 'ok'
-  if (open.some((g) => g.status === 'non_traitee' && (g.criticality === 'critique' || g.criticality === 'haute'))) return 'critical'
-  return 'warning'
 }

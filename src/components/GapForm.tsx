@@ -44,7 +44,6 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
     impact: gap?.impact ?? '',
     dueDate: gap?.dueDate ?? addDays(today(), DEFAULT_DELAY.haute),
     assignee: gap?.assignee ?? state.currentUserId,
-    assetIds: gap?.assetIds ?? [],
   }))
   const [nis2Touched, setNis2Touched] = useState(editing)
   const [dueTouched, setDueTouched] = useState(editing)
@@ -208,27 +207,6 @@ export default function GapForm({ gap, onClose, onSaved }: GapFormProps) {
             </select>
           </div>
         </div>
-        {state.settings.modules.cartographie && state.assets.some((a) => !a.archived) && (
-          <fieldset className="field">
-            <legend>Actifs concernés ({form.assetIds.length})</legend>
-            <div className="checklist">
-              {state.assets
-                .filter((a) => !a.archived || form.assetIds.includes(a.id))
-                .map((a) => (
-                  <label key={a.id}>
-                    <input
-                      type="checkbox"
-                      checked={form.assetIds.includes(a.id)}
-                      onChange={() => set('assetIds', form.assetIds.includes(a.id) ? form.assetIds.filter((x) => x !== a.id) : [...form.assetIds, a.id])}
-                    />
-                    <span>
-                      {a.name} <span className="tiny muted">{a.role}</span>
-                    </span>
-                  </label>
-                ))}
-            </div>
-          </fieldset>
-        )}
         <div className="field">
           <label htmlFor="gap-impact">Impact potentiel</label>
           <textarea id="gap-impact" className="input" rows={2} value={form.impact} onChange={(e) => set('impact', e.target.value)} placeholder="Conséquences en cas d'exploitation" />
