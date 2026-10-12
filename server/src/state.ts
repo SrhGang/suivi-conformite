@@ -3,6 +3,7 @@
  * changements produits par une action métier (comparaison avant / après).
  */
 import type {
+  Asset,
   ComplianceState,
   Counters,
   Evidence,
@@ -12,6 +13,7 @@ import type {
   Organization,
   Remediation,
   Role,
+  Settings,
   User,
 } from '../../src/types'
 import type { Db, Tx } from './db'
@@ -19,7 +21,8 @@ import { appendHistory, rowToEntry } from './history'
 
 type Queryable = Db | Tx
 
-const DEFAULT_COUNTERS: Counters = { gap: 0, remediation: 0, evidence: 0, history: 0, review: 0 }
+const DEFAULT_COUNTERS: Counters = { gap: 0, remediation: 0, evidence: 0, history: 0, review: 0, asset: 0 }
+const DEFAULT_SETTINGS: Settings = { modules: { cartographie: false } }
 
 async function getMeta<T>(q: Queryable, key: string, fallback: T): Promise<T> {
   const r = await q.query<{ value: T }>('SELECT value FROM app_meta WHERE key = $1', [key])
@@ -82,10 +85,12 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
   const remediations = await q.query<{ data: Remediation }>('SELECT data FROM remediations ORDER BY id')
   const evidence = await q.query<{ data: Evidence }>('SELECT data FROM evidence WHERE removed_at IS NULL ORDER BY id')
   const history = await q.query('SELECT id, gap_id, date, user_id, action, details FROM history ORDER BY seq')
+  const assets = await q.query<{ data: Asset }>('SELECT data FROM assets ORDER BY id')
   const organization = await getMeta<Organization>(q, 'organization', { name: 'Mon organisme', sector: '' })
   const counters = await getMeta<Counters>(q, 'counters', DEFAULT_COUNTERS)
   const milestones = await getMeta<Milestone[]>(q, 'milestones', [])
   const lastUpdated = await getMeta<string>(q, 'lastUpdated', new Date(0).toISOString())
+  const settings = await getMeta<Settings>(q, 'settings', DEFAULT_SETTINGS)
   const setup = await getSetup(q)
   return {
     version: 1,
@@ -97,6 +102,8 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
     evidence: evidence.rows.map((r) => r.data),
     history: history.rows.map(rowToEntry),
     milestones,
+    assets: assets.rows.map((r) => r.data),
+    settings: { modules: { ...DEFAULT_SETTINGS.modules, ...settings.modules } },
     counters: { ...DEFAULT_COUNTERS, ...counters },
     lastUpdated,
     ...(setup.completed ? {} : { setupPending: true }),
@@ -156,12 +163,23 @@ export async function persistChanges(
   // Retrait logique : la preuve et son fichier restent disponibles pour l'audit.
   for (const e of evs.removed) await tx.query('UPDATE evidence SET removed_at = now(), updated_at = now() WHERE id = $1', [e.id])
 
+  const assets = diffById(before.assets, after.assets)
+  for (const a of assets.upserted) {
+    await tx.query(
+      `INSERT INTO assets (id, data, updated_at) VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+      [a.id, JSON.stringify(a)],
+    )
+  }
+  if (assets.removed.length) throw new Error('Suppression d’actif interdite (archivage uniquement).')
+
   const known = new Set(before.history.map((h) => h.id))
   const added: HistoryEntry[] = after.history.filter((h) => !known.has(h.id))
   await appendHistory(tx, added)
 
   if (!same(before.counters, after.counters)) await setMeta(tx, 'counters', after.counters)
   if (!same(before.milestones, after.milestones)) await setMeta(tx, 'milestones', after.milestones)
+  if (!same(before.settings, after.settings)) await setMeta(tx, 'settings', after.settings)
   if (!same(before.organization, after.organization)) await setMeta(tx, 'organization', after.organization)
   if (before.lastUpdated !== after.lastUpdated) await setMeta(tx, 'lastUpdated', after.lastUpdated)
 }

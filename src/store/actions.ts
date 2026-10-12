@@ -8,6 +8,8 @@ import { controlLabel, suggestNis2 } from '../data/isoControls'
 import { STARTER_DUE_MONTHS, STARTER_GAPS } from '../data/starterGaps'
 import type {
   ActionResult,
+  Asset,
+  AssetInput,
   ComplianceState,
   Counters,
   Evidence,
@@ -21,6 +23,7 @@ import type {
   Remediation,
   RemediationInput,
   Review,
+  Settings,
   ReviewOutcome,
   User,
 } from '../types'
@@ -77,7 +80,7 @@ const deny = (error: string, extra: { errors?: FieldErrors; blockers?: string[] 
 const replaceGap = (state: ComplianceState, updated: Gap): Gap[] =>
   state.gaps.map((g) => (g.id === updated.id ? updated : g))
 
-type TrackedField = 'title' | 'description' | 'controlIds' | 'nis2Refs' | 'anssiRef' | 'criticality' | 'impact' | 'dueDate' | 'assignee'
+type TrackedField = 'title' | 'description' | 'controlIds' | 'nis2Refs' | 'anssiRef' | 'criticality' | 'impact' | 'dueDate' | 'assignee' | 'assetIds'
 
 const GAP_FIELD_LABELS: Record<TrackedField, string> = {
   title: 'Titre',
@@ -89,11 +92,17 @@ const GAP_FIELD_LABELS: Record<TrackedField, string> = {
   impact: 'Impact',
   dueDate: 'Échéance',
   assignee: 'Assigné à',
+  assetIds: 'Actifs concernés',
 }
 
 const displayValue = (state: ComplianceState, field: TrackedField, value: Gap[TrackedField] | undefined): string => {
   if (value == null || value === '') return '(vide)'
-  if (Array.isArray(value)) return field === 'controlIds' ? value.map((c) => `A.${c}`).join(', ') : value.join(', ')
+  if (Array.isArray(value)) {
+    if (!value.length) return '(vide)'
+    if (field === 'controlIds') return value.map((c) => `A.${c}`).join(', ')
+    if (field === 'assetIds') return value.map((id) => state.assets.find((a) => a.id === id)?.name ?? id).join(', ')
+    return value.join(', ')
+  }
   switch (field) {
     case 'criticality':
       return CRITICALITY_BY_ID[value as Gap['criticality']]?.label ?? value
@@ -140,6 +149,7 @@ export function createGap(state: ComplianceState, user: User, input: GapInput): 
     createdAt: now(),
     createdBy: user.id,
     assignee: input.assignee || user.id,
+    ...(input.assetIds?.length ? { assetIds: input.assetIds } : {}),
     updatedAt: now(),
     updatedBy: user.id,
     archived: false,
@@ -433,6 +443,122 @@ export function removeEvidence(state: ComplianceState, user: User, evId: string)
     return deny('Impossible de retirer la dernière preuve d’une lacune validée. Rouvrez la lacune au préalable.')
   const next = { ...state, evidence: state.evidence.filter((e) => e.id !== evId) }
   return ok(withHistory(next, user, ev.gapId, 'Preuve retirée', ev.name), ev)
+}
+
+/* ------------------------------------------------------------------ */
+/* Cartographie : actifs de l'infrastructure                           */
+/* ------------------------------------------------------------------ */
+
+export const validateAssetInput = (input: Partial<AssetInput>): FieldErrors => {
+  const errors: FieldErrors = {}
+  if (!input.name?.trim()) errors.name = 'Le nom est obligatoire.'
+  if (!input.type) errors.type = 'Le type est obligatoire.'
+  if (!input.zone) errors.zone = 'La zone est obligatoire.'
+  if (!input.criticality) errors.criticality = 'La criticité est obligatoire.'
+  return errors
+}
+
+/** Applique la réciprocité des liaisons : `asset` est relié exactement à `links`. */
+const syncLinks = (assets: Asset[], assetId: string, links: string[]): Asset[] =>
+  assets.map((a) => {
+    if (a.id === assetId) return a
+    const has = a.links.includes(assetId)
+    const should = links.includes(a.id)
+    if (has === should) return a
+    return { ...a, links: should ? [...a.links, assetId] : a.links.filter((l) => l !== assetId) }
+  })
+
+const assetName = (state: ComplianceState, id: string) => state.assets.find((a) => a.id === id)?.name ?? id
+
+export function createAsset(state: ComplianceState, user: User, input: AssetInput): ActionResult<Asset> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’ajouter un actif.')
+  const errors = validateAssetInput(input)
+  if (hasErrors(errors)) return deny('Formulaire incomplet.', { errors })
+  const links = [...new Set(input.links ?? [])].filter((id) => state.assets.some((a) => a.id === id))
+  const [id, counters] = nextId(state, 'asset', 'ACT')
+  const asset: Asset = {
+    id,
+    name: input.name.trim(),
+    type: input.type,
+    role: input.role?.trim() ?? '',
+    zone: input.zone,
+    criticality: input.criticality,
+    owner: input.owner ?? '',
+    description: input.description?.trim() ?? '',
+    links,
+    position: null,
+    createdAt: now(),
+    createdBy: user.id,
+    updatedAt: now(),
+    updatedBy: user.id,
+    archived: false,
+  }
+  const assets = syncLinks([...state.assets, asset], id, links)
+  return ok(withHistory({ ...state, counters, assets }, user, null, 'Actif créé', `${id} : ${asset.name}`), asset)
+}
+
+const ASSET_FIELD_LABELS = { name: 'Nom', type: 'Type', role: 'Rôle', zone: 'Zone', criticality: 'Criticité', owner: 'Responsable', description: 'Description', links: 'Liaisons' }
+type AssetField = keyof typeof ASSET_FIELD_LABELS
+
+export function updateAsset(state: ComplianceState, user: User, assetId: string, changes: Partial<AssetInput>): ActionResult<Asset> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de modifier un actif.')
+  const asset = state.assets.find((a) => a.id === assetId)
+  if (!asset) return deny('Actif introuvable.')
+  const links = changes.links ? [...new Set(changes.links)].filter((id) => id !== assetId && state.assets.some((a) => a.id === id)) : asset.links
+  const merged: Asset = { ...asset, ...changes, links }
+  const errors = validateAssetInput(merged)
+  if (hasErrors(errors)) return deny('Formulaire incomplet.', { errors })
+  const shown = (f: AssetField, v: unknown) => {
+    if (f === 'links') return (v as string[]).map((id) => assetName(state, id)).join(', ') || '(vide)'
+    if (f === 'owner') return state.users.find((u) => u.id === v)?.name ?? '(vide)'
+    if (f === 'criticality') return CRITICALITY_BY_ID[v as Asset['criticality']]?.label ?? String(v)
+    return String(v ?? '') || '(vide)'
+  }
+  const diffs = (Object.keys(ASSET_FIELD_LABELS) as AssetField[])
+    .filter((f) => (f === 'links' ? 'links' in changes : f in changes) && JSON.stringify(merged[f]) !== JSON.stringify(asset[f]))
+    .map((f) => `${ASSET_FIELD_LABELS[f]} : ${shown(f, asset[f])} → ${shown(f, merged[f])}`)
+  if (!diffs.length) return ok(state, asset)
+  const updated: Asset = { ...merged, name: merged.name.trim(), updatedAt: now(), updatedBy: user.id }
+  const assets = syncLinks(state.assets.map((a) => (a.id === assetId ? updated : a)), assetId, links)
+  return ok(withHistory({ ...state, assets }, user, null, 'Actif modifié', `${assetId} : ${diffs.join(' ; ')}`), updated)
+}
+
+/** Déplacement sur la carte : simple mise en page, non journalisée. */
+export function moveAsset(state: ComplianceState, user: User, assetId: string, position: { x: number; y: number } | null): ActionResult<Asset> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de réorganiser la carte.')
+  const asset = state.assets.find((a) => a.id === assetId)
+  if (!asset) return deny('Actif introuvable.')
+  const moved: Asset = { ...asset, position: position && { x: Math.round(position.x), y: Math.round(position.y) } }
+  return ok({ ...state, assets: state.assets.map((a) => (a.id === assetId ? moved : a)), lastUpdated: now() }, moved)
+}
+
+export function setAssetArchived(state: ComplianceState, user: User, assetId: string, archived: boolean): ActionResult<Asset> {
+  if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’archiver un actif.')
+  const asset = state.assets.find((a) => a.id === assetId)
+  if (!asset) return deny('Actif introuvable.')
+  if (asset.archived === archived) return ok(state, asset)
+  const updated: Asset = { ...asset, archived, updatedAt: now(), updatedBy: user.id }
+  const next = { ...state, assets: state.assets.map((a) => (a.id === assetId ? updated : a)) }
+  return ok(withHistory(next, user, null, archived ? 'Actif archivé' : 'Actif restauré', `${assetId} : ${asset.name}`), updated)
+}
+
+/** Ajoute ou retire un actif de la liste des actifs concernés par une lacune. */
+export function linkGapAsset(state: ComplianceState, user: User, gapId: string, assetId: string, linked: boolean): ActionResult<Gap> {
+  const gap = state.gaps.find((g) => g.id === gapId)
+  if (!gap) return deny('Lacune introuvable.')
+  if (!state.assets.some((a) => a.id === assetId)) return deny('Actif introuvable.')
+  const current = gap.assetIds ?? []
+  const assetIds = linked ? [...new Set([...current, assetId])] : current.filter((id) => id !== assetId)
+  return updateGap(state, user, gapId, { assetIds })
+}
+
+/** Active ou désactive les modules (administrateur). Désactiver ne supprime aucune donnée. */
+export function setModules(state: ComplianceState, user: User, modules: Settings['modules']): ActionResult<Settings> {
+  if (!can(user, 'admin')) return deny('Seul un administrateur peut choisir les modules.')
+  if (state.settings.modules.cartographie === modules.cartographie) return ok(state, state.settings)
+  const settings: Settings = { ...state.settings, modules: { ...state.settings.modules, ...modules } }
+  const details = `Cartographie interactive ${modules.cartographie ? 'activée' : 'désactivée'}.`
+  return ok(withHistory({ ...state, settings }, user, null, 'Modules modifiés', details), settings)
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { EmptyState } from './components/ui'
+import Cartographie from './pages/Cartographie'
 import Dashboard from './pages/Dashboard'
 import GapDetail from './pages/GapDetail'
 import GapsInventory from './pages/GapsInventory'
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="lacunes/:id" element={<GapDetail />} />
         <Route path="roadmap" element={<Roadmap />} />
         <Route path="referentiel" element={<Referentiel />} />
+        <Route path="cartographie" element={<Cartographie />} />
         <Route path="utilisateurs" element={<Users />} />
         <Route path="*" element={<NotFound />} />
       </Route>

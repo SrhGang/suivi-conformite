@@ -5,6 +5,8 @@ import { USE_API } from '../platform'
 import type {
   ActionResult,
   ApiResult,
+  Asset,
+  AssetInput,
   ComplianceState,
   Evidence,
   EvidenceInput,
@@ -17,11 +19,13 @@ import type {
   Remediation,
   RemediationInput,
   ReviewOutcome,
+  Settings,
   User,
 } from '../types'
 import * as actions from './actions'
 
-const STORAGE_KEY = 'suivi-conformite:v1'
+// v2 : ajout de la cartographie (actifs, modules) ; une ancienne démo repart des données de démonstration.
+const STORAGE_KEY = 'suivi-conformite:v2'
 /** Taille maximale d'un fichier conservé dans le navigateur (mode démo). */
 const MAX_INLINE = 1024 * 1024
 
@@ -55,6 +59,14 @@ export interface ComplianceApi {
   uploadEvidence: (gapId: string, file: File, type: EvidenceTypeId) => Async<Evidence>
   removeEvidence: (id: string) => Async<Evidence>
   updateMilestones: (milestones: Milestone[]) => Async<Milestone[]>
+  createAsset: (input: AssetInput) => Async<Asset>
+  updateAsset: (id: string, changes: Partial<AssetInput>) => Async<Asset>
+  moveAsset: (id: string, position: { x: number; y: number } | null) => Async<Asset>
+  archiveAsset: (id: string) => Async<Asset>
+  restoreAsset: (id: string) => Async<Asset>
+  linkGapAsset: (gapId: string, assetId: string, linked: boolean) => Async<Gap>
+  /** Administrateur : active ou désactive les modules. */
+  setModules: (modules: Settings['modules']) => Async<Settings>
   /** Démo uniquement : simulation de connexion sous un autre compte. */
   switchUser: (userId: string) => void
   /** Démo uniquement. */
@@ -94,6 +106,14 @@ const isComplianceState = (data: unknown): data is ComplianceState => {
   return Array.isArray(d.gaps) && Array.isArray(d.users) && Array.isArray(d.history) && Array.isArray(d.remediations)
 }
 
+/** Complète un état enregistré par une version antérieure (sauvegarde importée). */
+const normalizeState = (s: ComplianceState): ComplianceState => ({
+  ...s,
+  assets: s.assets ?? [],
+  settings: { modules: { cartographie: s.settings?.modules?.cartographie ?? false } },
+  counters: { ...s.counters, asset: s.counters?.asset ?? 0 },
+})
+
 const readStorage = (): ComplianceState => {
   let raw: string | null = null
   try {
@@ -104,7 +124,7 @@ const readStorage = (): ComplianceState => {
   if (!raw) return buildDemoData()
   const parsed: unknown = JSON.parse(raw)
   if (!isComplianceState(parsed)) throw new Error('Données locales invalides')
-  return parsed
+  return normalizeState(parsed)
 }
 
 const writeStorage = (state: ComplianceState): boolean => {
@@ -144,6 +164,13 @@ const LOCAL_ACTIONS = {
   addEvidence: actions.addEvidence,
   removeEvidence: actions.removeEvidence,
   updateMilestones: actions.updateMilestones,
+  createAsset: actions.createAsset,
+  updateAsset: actions.updateAsset,
+  moveAsset: actions.moveAsset,
+  archiveAsset: (s: ComplianceState, u: User, id: string) => actions.setAssetArchived(s, u, id, true),
+  restoreAsset: (s: ComplianceState, u: User, id: string) => actions.setAssetArchived(s, u, id, false),
+  linkGapAsset: actions.linkGapAsset,
+  setModules: actions.setModules,
 } satisfies Record<string, ActionFn>
 
 type ActionName = keyof typeof LOCAL_ACTIONS
@@ -329,6 +356,13 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
       uploadEvidence,
       removeEvidence: (id) => run('removeEvidence', id),
       updateMilestones: (m) => run('updateMilestones', m),
+      createAsset: (input) => run('createAsset', input),
+      updateAsset: (id, changes) => run('updateAsset', id, changes),
+      moveAsset: (id, position) => run('moveAsset', id, position),
+      archiveAsset: (id) => run('archiveAsset', id),
+      restoreAsset: (id) => run('restoreAsset', id),
+      linkGapAsset: (gapId, assetId, linked) => run('linkGapAsset', gapId, assetId, linked),
+      setModules: (modules) => run('setModules', modules),
       switchUser: (userId) => {
         if (!USE_API && stateRef.current) commitLocal({ ...stateRef.current, currentUserId: userId })
       },
@@ -341,7 +375,7 @@ export function ComplianceProvider({ children, onSessionExpired }: ProviderProps
       importData: (data) => {
         if (USE_API) throw new Error('Import indisponible : les données sont gérées par le serveur.')
         if (!isComplianceState(data)) throw new Error('Fichier de sauvegarde invalide.')
-        commitLocal({ ...data, lastUpdated: new Date().toISOString() })
+        commitLocal({ ...normalizeState(data), lastUpdated: new Date().toISOString() })
       },
       retry: load,
       refresh: async () => {

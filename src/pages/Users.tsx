@@ -167,6 +167,8 @@ export default function Users() {
         )}
       </div>
 
+      <ModulesCard />
+
       <OrganizationCard
         organization={state.organization}
         onSaved={async () => {
@@ -270,6 +272,35 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
       </form>
     </Modal>
+  )
+}
+
+/** Choix des modules : la cartographie peut être activée ou désactivée à tout moment, sans perte de données. */
+function ModulesCard() {
+  const { state, setModules, notify } = useCompliance()
+  const on = state.settings.modules.cartographie
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h2 className="card__title">Modules</h2>
+      <label className="toggle" style={{ alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={async (e) => {
+            const r = await setModules({ cartographie: e.target.checked })
+            if (r.ok) notify(e.target.checked ? 'Module cartographie activé.' : 'Module cartographie désactivé (données conservées).')
+            else notify(r.error, 'error')
+          }}
+        />
+        <span>
+          <strong>Cartographie interactive de l’infrastructure</strong>
+          <span className="small muted" style={{ display: 'block' }}>
+            Carte cliquable des serveurs, équipements réseau, applications et fournisseurs, reliée aux lacunes. La désactiver masque la carte sans rien
+            supprimer.
+          </span>
+        </span>
+      </label>
+    </div>
   )
 }
 
