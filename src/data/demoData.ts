@@ -7,8 +7,6 @@ import { suggestNis2 } from './isoControls'
 import { CRITICALITY_BY_ID } from './constants'
 import { addDays, addMonths, today } from '../utils/dates'
 import type {
-  Asset,
-  AssetTypeId,
   ComplianceState,
   CriticalityId,
   Evidence,
@@ -23,7 +21,6 @@ import type {
   RemediationStatusId,
   RemediationTypeId,
   User,
-  ZoneId,
 } from '../types'
 
 export const ORGANIZATION: Organization = {
@@ -109,55 +106,6 @@ const GAPS: GapRow[] = [
   ['GAP-025', 'Accès VPN des prestataires sans MFA', "Les 4 prestataires de maintenance accèdent au SI par VPN avec un simple identifiant/mot de passe partagé.", ['8.5', '5.21'], ANSSI.mfa, 'critique', 'en_cours', 'Compromission via un compte prestataire partagé.', 15, -25, 'u1', 'u2'],
   ['GAP-026', 'Doublon : MFA VPN prestataires', 'Lacune créée en double de GAP-025, archivée.', ['8.5'], ANSSI.mfa, 'critique', 'non_traitee', '', 15, -24, 'u2', 'u2', { archived: true }],
 ]
-
-// Cartographie : [id, nom, type, rôle, zone, criticité, responsable, description, liaisons]
-type AssetRow = [id: string, name: string, type: AssetTypeId, role: string, zone: ZoneId, criticality: CriticalityId, owner: string, description: string, links: string[]]
-
-const ASSETS: AssetRow[] = [
-  ['ACT-001', 'Liaison fibre opérateur', 'routeur', 'Accès Internet principal', 'internet', 'haute', 'u2', 'Routeur de l’opérateur, lien fibre 1 Gbit/s.', ['ACT-002', 'ACT-016']],
-  ['ACT-002', 'Pare-feu périmétrique', 'parefeu', 'Filtrage Internet, DMZ et réseau interne', 'dmz', 'critique', 'u2', 'Cluster de deux pare-feu en haute disponibilité.', ['ACT-003', 'ACT-004', 'ACT-011']],
-  ['ACT-003', 'Passerelle VPN', 'serveur', 'Accès distant des agents et des prestataires', 'dmz', 'critique', 'u2', 'VPN SSL pour le télétravail et la télémaintenance.', ['ACT-017', 'ACT-018']],
-  ['ACT-004', 'Site web public', 'serveur', 'Serveur web du site institutionnel', 'dmz', 'moyenne', 'u3', 'Informations aux abonnés, sans paiement en ligne.', []],
-  ['ACT-005', 'Hyperviseur', 'serveur', 'Virtualisation des serveurs du siège', 'serveurs', 'critique', 'u2', 'Trois hôtes en grappe, environ 40 machines virtuelles.', ['ACT-006', 'ACT-007', 'ACT-008', 'ACT-010', 'ACT-011']],
-  ['ACT-006', 'Contrôleur de domaine', 'serveur', 'Annuaire Active Directory et authentification', 'serveurs', 'critique', 'u2', 'Deux contrôleurs de domaine virtualisés.', ['ACT-011']],
-  ['ACT-007', 'ERP facturation', 'application', 'Application métier : facturation des abonnés', 'serveurs', 'haute', 'u3', 'Contient les données personnelles et bancaires des abonnés.', []],
-  ['ACT-008', 'GMAO', 'application', 'Gestion de la maintenance des réseaux d’eau', 'serveurs', 'moyenne', 'u3', 'Interventions sur les canalisations et les stations.', []],
-  ['ACT-009', 'Serveur de sauvegarde', 'stockage', 'Sauvegardes quotidiennes', 'serveurs', 'critique', 'u2', 'NAS dans la même salle que les serveurs, sans copie hors ligne.', ['ACT-005', 'ACT-011']],
-  ['ACT-010', 'Collecteur de journaux (Wazuh)', 'serveur', 'Centralisation et analyse des journaux', 'serveurs', 'haute', 'u2', 'En cours de déploiement : pare-feu et AD raccordés.', ['ACT-011']],
-  ['ACT-011', 'Switch cœur de réseau', 'switch', 'Commutation du siège', 'serveurs', 'haute', 'u2', 'Relie les serveurs, la bureautique et, sans filtrage, le réseau industriel.', ['ACT-012', 'ACT-013', 'ACT-014']],
-  ['ACT-012', 'Postes du siège', 'poste', 'Environ 120 postes Windows', 'bureautique', 'moyenne', 'u2', 'Postes fixes et portables des agents.', ['ACT-016']],
-  ['ACT-013', 'Bornes Wi-Fi', 'wifi', 'Wi-Fi interne et invités', 'bureautique', 'basse', 'u2', 'Réseau invités séparé par VLAN.', []],
-  ['ACT-014', 'Supervision SCADA', 'industriel', 'Supervision du traitement et de la distribution d’eau', 'industriel', 'critique', 'u3', 'Pilote les usines et les stations de pompage.', ['ACT-015']],
-  ['ACT-015', 'Automates des stations', 'industriel', 'Automates programmables des 12 stations de pompage', 'industriel', 'critique', 'u3', 'Pompes, vannes et dosage du chlore.', []],
-  ['ACT-016', 'Messagerie en ligne', 'cloud', 'Messagerie et bureautique en ligne', 'cloud', 'haute', 'u2', 'Service en nuage pour tous les agents.', []],
-  ['ACT-017', 'Prestataire maintenance SCADA', 'fournisseur', 'Télémaintenance de la supervision', 'tiers', 'haute', 'u1', 'Accès VPN avec un compte partagé.', []],
-  ['ACT-018', 'Infogérant', 'fournisseur', 'Exploitation des serveurs', 'tiers', 'moyenne', 'u1', 'Contrat d’infogérance renouvelé chaque année.', []],
-]
-
-/** Actifs concernés par chaque lacune de démonstration. */
-const GAP_ASSETS: Record<string, string[]> = {
-  'GAP-001': ['ACT-005', 'ACT-014'],
-  'GAP-002': ['ACT-006', 'ACT-007', 'ACT-008'],
-  'GAP-003': ['ACT-009'],
-  'GAP-004': ['ACT-002', 'ACT-006'],
-  'GAP-006': ['ACT-011', 'ACT-015'],
-  'GAP-007': ['ACT-003', 'ACT-006'],
-  'GAP-008': ['ACT-005', 'ACT-012'],
-  'GAP-010': ['ACT-012'],
-  'GAP-011': ['ACT-011', 'ACT-014', 'ACT-015'],
-  'GAP-012': ['ACT-017', 'ACT-018'],
-  'GAP-013': ['ACT-007', 'ACT-014'],
-  'GAP-014': ['ACT-006'],
-  'GAP-015': ['ACT-005'],
-  'GAP-016': ['ACT-012'],
-  'GAP-017': ['ACT-010'],
-  'GAP-019': ['ACT-006'],
-  'GAP-020': ['ACT-007'],
-  'GAP-021': ['ACT-012', 'ACT-014'],
-  'GAP-022': ['ACT-016'],
-  'GAP-024': ['ACT-012'],
-  'GAP-025': ['ACT-003', 'ACT-017'],
-}
 
 // [id, gapId, titre, type, statut, avancement, début (j), cible (j), responsable, description]
 type RemediationRow = [
@@ -272,7 +220,6 @@ export const buildDemoData = (): ComplianceState => {
       validation: null,
       nextReviewDate: null,
       reviews: [],
-      ...(GAP_ASSETS[id] ? { assetIds: GAP_ASSETS[id] } : {}),
     }
     history.push(hist(id, created, createdBy, 'Création', `Lacune créée (criticité ${CRITICALITY_BY_ID[criticality].label}).`))
     if (status !== 'non_traitee') history.push(hist(id, created + 5, assignee, 'Statut modifié', 'Non traitée → En cours'))
@@ -320,16 +267,6 @@ export const buildDemoData = (): ComplianceState => {
     { id: 'M3', date: q(12), label: 'Conformité complète', target: 100 },
   ]
 
-  // Liaisons réciproques entre actifs.
-  const assets: Asset[] = ASSETS.map(([id, name, type, role, zone, criticality, owner, description, links]) => ({
-    id, name, type, role, zone, criticality, owner, description, links, position: null,
-    createdAt: ts(-100), createdBy: 'u2', updatedAt: ts(-20), updatedBy: 'u2', archived: false,
-  }))
-  for (const a of assets) for (const l of a.links) {
-    const other = assets.find((x) => x.id === l)
-    if (other && !other.links.includes(a.id)) other.links.push(a.id)
-  }
-
   return {
     version: 1,
     organization: ORGANIZATION,
@@ -340,9 +277,7 @@ export const buildDemoData = (): ComplianceState => {
     evidence,
     history,
     milestones,
-    assets,
-    settings: { modules: { cartographie: true } },
-    counters: { gap: 26, remediation: 32, evidence: 11, history: historySeq, review: 1, asset: ASSETS.length },
+    counters: { gap: 26, remediation: 32, evidence: 11, history: historySeq, review: 1 },
     lastUpdated: new Date().toISOString(),
   }
 }

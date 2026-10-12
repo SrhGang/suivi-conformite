@@ -77,7 +77,7 @@ export async function verifyHistory(db: Db): Promise<VerifyReport> {
 /** Ajoute au journal d'audit un évènement hors action métier (gestion des comptes). */
 export async function logEvent(tx: Tx, userId: string, action: string, details: string): Promise<void> {
   const meta = await tx.query<{ value: ComplianceState['counters'] }>(`SELECT value FROM app_meta WHERE key = 'counters'`)
-  const counters: ComplianceState['counters'] = Object.assign({ gap: 0, remediation: 0, evidence: 0, history: 0, review: 0, asset: 0 }, meta.rows[0]?.value)
+  const counters: ComplianceState['counters'] = Object.assign({ gap: 0, remediation: 0, evidence: 0, history: 0, review: 0 }, meta.rows[0]?.value)
   counters.history += 1
   const entry: HistoryEntry = {
     id: `H-${String(counters.history).padStart(4, '0')}`,

@@ -22,9 +22,6 @@ const remStatus = z.enum(['a_faire', 'en_cours', 'bloque', 'valide'])
 const evidenceType = z.enum(['capture', 'certificat', 'rapport', 'procedure', 'journal', 'autre'])
 const nis2 = z.enum(['20', '21.2.a', '21.2.b', '21.2.c', '21.2.d', '21.2.e', '21.2.f', '21.2.g', '21.2.h', '21.2.i', '21.2.j', '23'])
 const controlId = z.string().regex(/^[5-8]\.\d{1,2}$/, 'Mesure ISO invalide')
-const assetId = z.string().regex(/^ACT-\d{3,6}$/, 'Actif invalide')
-const assetType = z.enum(['serveur', 'application', 'poste', 'switch', 'routeur', 'parefeu', 'wifi', 'stockage', 'cloud', 'industriel', 'fournisseur'])
-const zone = z.enum(['internet', 'dmz', 'serveurs', 'bureautique', 'industriel', 'cloud', 'tiers'])
 
 const gapInput = z
   .object({
@@ -37,24 +34,8 @@ const gapInput = z
     impact: text(2000).optional(),
     dueDate: isoDate,
     assignee: id.optional(),
-    assetIds: z.array(assetId).max(50).optional(),
   })
   .strict()
-
-const assetInput = z
-  .object({
-    name: text(160),
-    type: assetType,
-    role: text(200).optional(),
-    zone,
-    criticality,
-    owner: z.union([id, z.literal('')]).optional(),
-    description: text(2000).optional(),
-    links: z.array(assetId).max(50).optional(),
-  })
-  .strict()
-
-const position = z.object({ x: z.number().finite().min(-10000).max(10000), y: z.number().finite().min(-10000).max(10000) }).strict().nullable()
 
 const remediationInput = z
   .object({
@@ -109,13 +90,6 @@ export const ACTIONS: Record<string, Handler> = {
   addEvidence: action(z.tuple([id, evidenceLinkInput]), A.addEvidence),
   removeEvidence: action(z.tuple([id]), A.removeEvidence),
   updateMilestones: action(z.tuple([z.array(milestone).max(20)]), A.updateMilestones),
-  createAsset: action(z.tuple([assetInput]), A.createAsset),
-  updateAsset: action(z.tuple([assetId, assetInput.partial()]), A.updateAsset),
-  moveAsset: action(z.tuple([assetId, position]), A.moveAsset),
-  archiveAsset: action(z.tuple([assetId]), (s, u, aid) => A.setAssetArchived(s, u, aid, true)),
-  restoreAsset: action(z.tuple([assetId]), (s, u, aid) => A.setAssetArchived(s, u, aid, false)),
-  linkGapAsset: action(z.tuple([id, assetId, z.boolean()]), A.linkGapAsset),
-  setModules: action(z.tuple([z.object({ cartographie: z.boolean() }).strict()]), A.setModules),
 }
 
 export type ActionName = keyof typeof ACTIONS
