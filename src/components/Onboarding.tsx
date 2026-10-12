@@ -60,14 +60,15 @@ export default function Onboarding({ guideRequested, onGuideClosed }: Onboarding
 /* Assistant de première installation                                  */
 /* ------------------------------------------------------------------ */
 
-const SETUP_STEPS = ['Organisme', 'Données de départ', 'Équipe']
+const SETUP_STEPS = ['Organisme', 'Modules', 'Données de départ', 'Équipe']
 
 function SetupWizard({ onLater }: { onLater: () => void }) {
-  const { state, refresh, notify } = useCompliance()
+  const { state, refresh, notify, setModules } = useCompliance()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [org, setOrg] = useState(state.organization)
   const [start, setStart] = useState<'empty' | 'starter' | null>(state.gaps.length ? 'empty' : null)
+  const [map, setMap] = useState<boolean | null>(state.settings.modules.cartographie ? true : null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const later = onLater
@@ -97,12 +98,21 @@ function SetupWizard({ onLater }: { onLater: () => void }) {
     if (!start) return setError('Choisissez comment démarrer.')
     if (start === 'empty') {
       setError(null)
-      return setStep(2)
+      return setStep(3)
     }
     void perform(setupApi.loadStarterGaps, () => {
       notify(`${STARTER_GAPS.length} lacunes de départ ajoutées, à confirmer.`)
-      setStep(2)
+      setStep(3)
     })
+  }
+
+  const submitModules = (e: FormEvent) => {
+    e.preventDefault()
+    if (map === null) return setError('Choisissez une formule.')
+    void perform(
+      () => setModules({ cartographie: map }),
+      () => setStep(2),
+    )
   }
 
   const finish = (target: string) => void perform(setupApi.complete, () => navigate(target))
@@ -135,6 +145,50 @@ function SetupWizard({ onLater }: { onLater: () => void }) {
       )}
 
       {step === 1 && (
+        <form onSubmit={submitModules}>
+          <p className="small" style={{ marginBottom: 16 }}>
+            Quelle formule voulez-vous utiliser ? Vous pourrez changer d’avis à tout moment dans Administration › Utilisateurs, sans perte de données.
+          </p>
+          <div className="choice-list" role="radiogroup" aria-label="Formule">
+            <label className={`choice ${map === false ? 'is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="modules"
+                checked={map === false}
+                onChange={() => {
+                  setMap(false)
+                  setError(null)
+                }}
+              />
+              <span>
+                <strong>Suivi classique</strong>
+                <span className="small muted">Lacunes, remédiations, preuves, roadmap et tableau de bord.</span>
+              </span>
+            </label>
+            <label className={`choice ${map === true ? 'is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="modules"
+                checked={map === true}
+                onChange={() => {
+                  setMap(true)
+                  setError(null)
+                }}
+              />
+              <span>
+                <strong>Suivi avec cartographie interactive</strong>
+                <span className="small muted">
+                  En plus : une carte cliquable de l’infrastructure (serveurs, réseau, applications, fournisseurs). Chaque élément montre ses lacunes, ce
+                  qui a été mis en place et ses preuves.
+                </span>
+              </span>
+            </label>
+          </div>
+          <WizardActions busy={busy} onLater={later} onBack={() => setStep(0)} submitLabel="Continuer" />
+        </form>
+      )}
+
+      {step === 2 && (
         <form onSubmit={submitStart}>
           <p className="small" style={{ marginBottom: 16 }}>
             Comment voulez-vous démarrer votre inventaire des lacunes ?
@@ -180,11 +234,11 @@ function SetupWizard({ onLater }: { onLater: () => void }) {
             Les données de démonstration fictives ne sont pas proposées ici : elles resteraient pour toujours dans le journal d’audit. Réservez-les à
             une instance de test.
           </p>
-          <WizardActions busy={busy} onLater={later} onBack={() => setStep(0)} submitLabel="Continuer" />
+          <WizardActions busy={busy} onLater={later} onBack={() => setStep(1)} submitLabel="Continuer" />
         </form>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div>
           <p className="small" style={{ marginBottom: 16 }}>
             Dernière étape : créez les comptes de l’équipe et attribuez un rôle à chacun. Chaque personne reçoit un mot de passe temporaire et active
@@ -192,7 +246,7 @@ function SetupWizard({ onLater }: { onLater: () => void }) {
           </p>
           <RolesHelp />
           <div className="form-actions">
-            <button type="button" className="btn btn--ghost" onClick={() => setStep(1)} disabled={busy}>
+            <button type="button" className="btn btn--ghost" onClick={() => setStep(2)} disabled={busy}>
               Retour
             </button>
             <button type="button" className="btn btn--secondary" onClick={() => finish('/')} disabled={busy}>
@@ -235,7 +289,7 @@ interface Slide {
   body: ReactNode
 }
 
-function guideSlides(user: User, mode: 'api' | 'local', toConfirm: number): Slide[] {
+function guideSlides(user: User, mode: 'api' | 'local', toConfirm: number, map: boolean): Slide[] {
   const slides: Slide[] = [
     {
       title: 'Bienvenue',
@@ -263,6 +317,15 @@ function guideSlides(user: User, mode: 'api' | 'local', toConfirm: number): Slid
           <dd>Score de conformité pondéré par la criticité, alertes prioritaires et activité récente.</dd>
           <dt>Lacunes</dt>
           <dd>L’inventaire complet, avec recherche, filtres et export CSV. Cliquez sur une lacune pour ses remédiations, preuves et historique.</dd>
+          {map && (
+            <>
+              <dt>Cartographie</dt>
+              <dd>
+                La carte de votre infrastructure : chaque serveur, équipement ou application prend la couleur de ses lacunes. Cliquez dessus pour voir ce
+                qui reste à faire et ce qui est déjà en place.
+              </dd>
+            </>
+          )}
           <dt>Roadmap</dt>
           <dd>Le plan d’action en vue Gantt ou Kanban.</dd>
           <dt>Référentiel</dt>
@@ -320,7 +383,7 @@ const ROLE_GUIDE: Record<User['role'], string> = {
 function WelcomeGuide({ user, onClose }: { user: User; onClose: () => void }) {
   const { mode, state } = useCompliance()
   const toConfirm = state.gaps.filter((g) => g.toConfirm && !g.archived).length
-  const slides = guideSlides(user, mode, toConfirm)
+  const slides = guideSlides(user, mode, toConfirm, state.settings.modules.cartographie)
   const [i, setI] = useState(0)
   const slide = slides[Math.min(i, slides.length - 1)]!
   const last = i >= slides.length - 1

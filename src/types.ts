@@ -32,6 +32,19 @@ export type RemediationStatusId = 'a_faire' | 'en_cours' | 'bloque' | 'valide'
 export type EvidenceTypeId = 'capture' | 'certificat' | 'rapport' | 'procedure' | 'journal' | 'autre'
 export type Role = 'responsable' | 'contributeur' | 'lecteur'
 export type Permission = 'edit' | 'validate' | 'archive' | 'review' | 'admin'
+export type AssetTypeId =
+  | 'serveur'
+  | 'application'
+  | 'poste'
+  | 'switch'
+  | 'routeur'
+  | 'parefeu'
+  | 'wifi'
+  | 'stockage'
+  | 'cloud'
+  | 'industriel'
+  | 'fournisseur'
+export type ZoneId = 'internet' | 'dmz' | 'serveurs' | 'bureautique' | 'industriel' | 'cloud' | 'tiers'
 export type ReviewOutcome = 'conforme' | 'non_conforme'
 
 /** Ton visuel partagé par les badges et pastilles d'état. */
@@ -108,6 +121,49 @@ export interface Gap {
   reviews: Review[]
   /** Lacune issue des données de départ : à confirmer (ou archiver) par l'organisme. */
   toConfirm?: boolean
+  /** Actifs de l'infrastructure concernés (module cartographie). */
+  assetIds?: string[]
+}
+
+/** Élément de l'infrastructure (module cartographie). */
+export interface Asset {
+  id: string
+  name: string
+  type: AssetTypeId
+  /** Rôle précis : serveur web, messagerie, application métier… */
+  role: string
+  zone: ZoneId
+  criticality: CriticalityId
+  owner: string
+  description: string
+  /** Actifs reliés (liaison réciproque). */
+  links: string[]
+  /** Position sur la carte, en coordonnées de la carte ; `null` : placement automatique dans la zone. */
+  position: { x: number; y: number } | null
+  createdAt: ISODateTime
+  createdBy: string
+  updatedAt: ISODateTime
+  updatedBy: string
+  archived: boolean
+}
+
+export interface AssetInput {
+  name: string
+  type: AssetTypeId
+  role?: string
+  zone: ZoneId
+  criticality: CriticalityId
+  owner?: string
+  description?: string
+  links?: string[]
+}
+
+/** Modules activés par l'administrateur. */
+export interface Settings {
+  modules: {
+    /** Cartographie interactive de l'infrastructure. */
+    cartographie: boolean
+  }
 }
 
 export interface Remediation {
@@ -160,6 +216,7 @@ export interface Counters {
   evidence: number
   history: number
   review: number
+  asset: number
 }
 
 export interface ComplianceState {
@@ -172,6 +229,8 @@ export interface ComplianceState {
   evidence: Evidence[]
   history: HistoryEntry[]
   milestones: Milestone[]
+  assets: Asset[]
+  settings: Settings
   counters: Counters
   lastUpdated: ISODateTime
   /** Version serveur : l'assistant de première installation n'est pas encore terminé. */
@@ -189,6 +248,7 @@ export interface GapInput {
   impact?: string
   dueDate: ISODate
   assignee?: string
+  assetIds?: string[]
 }
 
 export interface RemediationInput {
