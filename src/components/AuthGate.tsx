@@ -2,7 +2,28 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { authApi, type AuthStage } from '../api/http'
 import Icon from './Icon'
 
-type GateState = { kind: 'checking' } | { kind: 'error'; message: string } | { kind: 'login'; notice?: string } | { kind: AuthStage }
+type GateState =
+  | { kind: 'checking' }
+  | { kind: 'error'; message: string }
+  | { kind: 'login'; notice?: string }
+  | { kind: 'invitation'; token: string }
+  | { kind: AuthStage }
+
+/**
+ * Lien reçu par e-mail : /invitation#<jeton>. Le jeton est lu dans le fragment
+ * (jamais envoyé au serveur par le navigateur) puis retiré de l'URL.
+ */
+let invitationToken: string | null | undefined
+function takeInvitationToken(): string | null {
+  // Mémorisé : React (StrictMode) peut appeler deux fois l'initialisation de l'état.
+  if (invitationToken !== undefined) return invitationToken
+  invitationToken = null
+  if (window.location.pathname !== '/invitation') return null
+  const token = window.location.hash.slice(1)
+  window.history.replaceState(null, '', '/')
+  if (/^[A-Za-z0-9_-]{20,100}$/.test(token)) invitationToken = token
+  return invitationToken
+}
 
 /**
  * Porte d'authentification (version production) : connexion, changement du
@@ -10,7 +31,10 @@ type GateState = { kind: 'checking' } | { kind: 'error'; message: string } | { k
  * affiché qu'une fois la session complète.
  */
 export default function AuthGate({ children }: { children: (onSessionEnded: (reason?: 'logout') => void) => ReactNode }) {
-  const [gate, setGate] = useState<GateState>({ kind: 'checking' })
+  const [gate, setGate] = useState<GateState>(() => {
+    const token = takeInvitationToken()
+    return token ? { kind: 'invitation', token } : { kind: 'checking' }
+  })
 
   const check = useCallback(async () => {
     const me = await authApi.me()
@@ -19,7 +43,8 @@ export default function AuthGate({ children }: { children: (onSessionEnded: (rea
   }, [])
 
   useEffect(() => {
-    void check()
+    // Vérification initiale uniquement : un lien d'invitation n'utilise pas la session existante.
+    if (gate.kind === 'checking') void check()
   }, [check])
 
   const expired = useCallback(
@@ -53,6 +78,7 @@ export default function AuthGate({ children }: { children: (onSessionEnded: (rea
           </div>
         )}
         {gate.kind === 'login' && <LoginForm notice={gate.notice} onDone={advance} />}
+        {gate.kind === 'invitation' && <InvitationForm token={gate.token} onDone={advance} onLogin={() => setGate({ kind: 'login' })} />}
         {gate.kind === 'password_change' && <PasswordForm onDone={advance} />}
         {gate.kind === 'totp_enroll' && <TotpEnroll onDone={advance} onRestart={() => setGate({ kind: 'login' })} />}
         {gate.kind === 'totp' && <TotpVerify onDone={advance} onRestart={() => setGate({ kind: 'login' })} />}
@@ -175,6 +201,95 @@ function PasswordForm({ onDone }: { onDone: (s: AuthStage) => void }) {
       </div>
       <button className="btn btn--primary auth-submit" type="submit" disabled={busy}>
         {busy ? 'Enregistrement…' : 'Enregistrer'}
+      </button>
+    </form>
+  )
+}
+
+/** Choix du mot de passe à partir d'un lien d'invitation ou de réinitialisation. */
+function InvitationForm({ token, onDone, onLogin }: { token: string; onDone: (s: AuthStage) => void; onLogin: () => void }) {
+  const [invite, setInvite] = useState<{ name: string; email: string; purpose: 'invite' | 'reset' } | null>(null)
+  const [invalid, setInvalid] = useState<string | null>(null)
+  const [pw, setPw] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [shown, setShown] = useState(false)
+  const { busy, error, setError, submit } = useSubmit()
+
+  useEffect(() => {
+    void authApi.checkInvitation(token).then((res) => (res.ok ? setInvite(res) : setInvalid(res.error)))
+  }, [token])
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (pw !== confirm) return setError('Les deux saisies ne correspondent pas.')
+    void submit(async () => {
+      const res = await authApi.acceptInvitation(token, pw)
+      if (!res.ok) return setError(res.error)
+      onDone(res.stage)
+    })
+  }
+
+  if (invalid)
+    return (
+      <div>
+        <h1 className="auth-title">Lien inutilisable</h1>
+        <div className="banner banner--error" role="alert">
+          {invalid}
+        </div>
+        <button type="button" className="btn btn--secondary auth-submit" onClick={onLogin}>
+          Aller à la connexion
+        </button>
+      </div>
+    )
+  if (!invite) return <p className="muted small">Vérification du lien…</p>
+
+  return (
+    <form onSubmit={onSubmit}>
+      <h1 className="auth-title">{invite.purpose === 'invite' ? 'Activez votre compte' : 'Choisissez un nouveau mot de passe'}</h1>
+      <p className="small muted" style={{ marginBottom: 16 }}>
+        Bonjour {invite.name}. Choisissez votre mot de passe (12 caractères minimum ; une phrase de passe est idéale), puis configurez la double
+        authentification.
+      </p>
+      {error && (
+        <div className="banner banner--error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor="invite-email">Identifiant</label>
+        <input id="invite-email" className="input" type="email" autoComplete="username" readOnly value={invite.email} />
+      </div>
+      <div className="field">
+        <label htmlFor="invite-password">Mot de passe</label>
+        <input
+          id="invite-password"
+          className="input"
+          type={shown ? 'text' : 'password'}
+          autoComplete="new-password"
+          minLength={12}
+          required
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="invite-confirm">Confirmation</label>
+        <input
+          id="invite-confirm"
+          className="input"
+          type={shown ? 'text' : 'password'}
+          autoComplete="new-password"
+          minLength={12}
+          required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+        <label className="toggle small" style={{ marginTop: 6 }}>
+          <input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} /> Afficher les mots de passe
+        </label>
+      </div>
+      <button className="btn btn--primary auth-submit" type="submit" disabled={busy}>
+        {busy ? 'Enregistrement…' : 'Enregistrer et continuer'}
       </button>
     </form>
   )

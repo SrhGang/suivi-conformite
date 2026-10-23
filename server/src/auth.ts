@@ -11,7 +11,9 @@ import QRCode from 'qrcode'
 import { z } from 'zod'
 import type { Role } from '../../src/types'
 import type { Config } from './config'
-import type { Db } from './db'
+import { WRITE_LOCK_KEY, withTx, type Db } from './db'
+import { logEvent } from './history'
+import { findValidToken } from './invitations'
 import {
   checkTotp,
   decryptSecret,
@@ -126,6 +128,16 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
 
   const authRate = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }
 
+  /** Ouvre une session à l'étape `stage` et pose le cookie. */
+  const openSession = async (req: FastifyRequest, reply: FastifyReply, userId: string, stage: Stage) => {
+    const token = newToken()
+    await db.query(
+      `INSERT INTO sessions (id, user_id, stage, expires_at, ip, user_agent) VALUES ($1, $2, $3, now() + make_interval(hours => $4::int), $5, $6)`,
+      [tokenId(token), userId, stage, config.sessionMaxHours, req.ip, String(req.headers['user-agent'] ?? '').slice(0, 300)],
+    )
+    reply.setCookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: config.sessionMaxHours * 3600 })
+  }
+
   app.post('/api/auth/login', authRate, async (req, reply) => {
     const body = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(256) }).safeParse(req.body)
     if (!body.success) return reply.code(400).send({ ok: false, error: 'Identifiant ou mot de passe invalide.' })
@@ -154,13 +166,8 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
       return refuse()
     }
     await db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1', [user.id])
-    const token = newToken()
     const stage = nextStage(user)
-    await db.query(
-      `INSERT INTO sessions (id, user_id, stage, expires_at, ip, user_agent) VALUES ($1, $2, $3, now() + make_interval(hours => $4::int), $5, $6)`,
-      [tokenId(token), user.id, stage, config.sessionMaxHours, req.ip, String(req.headers['user-agent'] ?? '').slice(0, 300)],
-    )
-    reply.setCookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: config.sessionMaxHours * 3600 })
+    await openSession(req, reply, user.id, stage)
     return { ok: true, stage }
   })
 
@@ -246,6 +253,47 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     }
     await completeLogin(auth)
     return { ok: true, stage: 'full' }
+  })
+
+  /* Lien d'invitation ou de réinitialisation reçu par e-mail. */
+  const invalidLink = 'Lien invalide ou expiré. Demandez une nouvelle invitation à un administrateur.'
+  const tokenBody = z.object({ token: z.string().min(20).max(100) })
+
+  app.post('/api/auth/invitation/check', authRate, async (req, reply) => {
+    const body = tokenBody.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ ok: false, error: invalidLink })
+    const found = await withTx(db, (tx) => findValidToken(tx, body.data.token))
+    if (!found) return reply.code(400).send({ ok: false, error: invalidLink })
+    return { ok: true, name: found.name, email: found.email, purpose: found.purpose }
+  })
+
+  app.post('/api/auth/invitation/accept', authRate, async (req, reply) => {
+    const body = tokenBody.extend({ newPassword: z.string().max(256) }).safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ ok: false, error: invalidLink })
+    const res = await withTx(db, async (tx) => {
+      await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+      const found = await findValidToken(tx, body.data.token)
+      if (!found) return { error: invalidLink }
+      const problem = passwordProblem(body.data.newPassword, found.email)
+      if (problem) return { error: problem }
+      await tx.query(
+        'UPDATE users SET password_hash = $2, must_change_password = false, failed_attempts = 0, locked_until = NULL WHERE id = $1',
+        [found.userId, await hashPassword(body.data.newPassword)],
+      )
+      await tx.query('UPDATE user_tokens SET used_at = now() WHERE id = $1', [found.id])
+      await tx.query('DELETE FROM user_tokens WHERE user_id = $1 AND used_at IS NULL', [found.userId])
+      await tx.query('DELETE FROM sessions WHERE user_id = $1', [found.userId])
+      await logEvent(
+        tx,
+        found.userId,
+        found.purpose === 'invite' ? 'Invitation acceptée' : 'Accès réinitialisé par e-mail',
+        `${found.name} : mot de passe choisi par l’utilisateur`,
+      )
+      return { userId: found.userId, stage: nextStage({ must_change_password: false, totp_enabled: found.totpEnabled }) }
+    })
+    if ('error' in res) return reply.code(400).send({ ok: false, error: res.error })
+    await openSession(req, reply, res.userId, res.stage)
+    return { ok: true, stage: res.stage }
   })
 
   app.post('/api/auth/logout', async (req, reply) => {

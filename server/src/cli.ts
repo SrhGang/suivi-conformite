@@ -1,10 +1,13 @@
 /**
  * Outils d'administration :
  *   migrate                                   applique les migrations
- *   init --email E --name N [--role R] [--title T]
+ *   init --email E --name N [--role R] [--title T] [--invite]
  *                                             crée le premier administrateur (refusé s'il en existe déjà un)
- *   create-user --email E --name N --role R [--title T] [--admin]
+ *   create-user --email E --name N --role R [--title T] [--admin] [--invite]
  *                                             crée un compte (mot de passe temporaire affiché une fois)
+ *
+ * --invite : au lieu d'afficher un mot de passe temporaire, envoie par e-mail un
+ * lien d'invitation (SMTP configuré, comme pour l'API : SMTP_HOST, SMTP_FROM…).
  *   grant-admin --email E                     rend un compte administrateur (secours)
  *   verify-history                            vérifie le chaînage du journal d'audit
  *   seed-demo                                 charge les données de démonstration (base vide, instance de test)
@@ -14,11 +17,14 @@
  */
 import { buildDemoData } from '../../src/data/demoData'
 import type { ComplianceState, Role } from '../../src/types'
-import { adminDatabaseUrl } from './config'
+import { isExternalEmail } from '../../src/utils/domains'
+import { adminDatabaseUrl, loadConfig } from './config'
 import { WRITE_LOCK_KEY, createPool, migrate, withTx } from './db'
 import { logEvent, verifyHistory } from './history'
-import { hashPassword, initialsOf, newId, temporaryPassword } from './security'
-import { completeSetup, ensureOrganization, loadState, persistChanges } from './state'
+import { invitationMessage, issueToken } from './invitations'
+import { createSmtpMailer } from './mailer'
+import { hashPassword, initialsOf, newId, newToken, temporaryPassword } from './security'
+import { completeSetup, ensureOrganization, getOrganization, loadState, persistChanges } from './state'
 
 const [command, ...rest] = process.argv.slice(2)
 
@@ -42,24 +48,54 @@ const roleOption = (fallback?: Role): Role => {
   return role
 }
 
-/** Crée un compte avec un mot de passe temporaire et journalise l'opération. */
-async function insertUser(email: string, name: string, role: Role, isAdmin: boolean, onlyIfNoAdmin = false): Promise<string> {
-  const temp = temporaryPassword()
+/**
+ * Crée un compte et journalise l'opération. Renvoie le mot de passe temporaire,
+ * ou null si une invitation a été envoyée par e-mail (--invite).
+ */
+async function insertUser(email: string, name: string, role: Role, isAdmin: boolean, onlyIfNoAdmin = false): Promise<string | null> {
+  const invite = has('invite')
+  // Configuration complète (SMTP, origine publique) seulement pour une invitation.
+  const config = invite ? loadConfig() : null
+  if (config && !config.smtp) throw new Error('--invite : l’envoi d’e-mails n’est pas configuré (SMTP_HOST, SMTP_FROM, mot de passe SMTP).')
+  const temp = invite ? null : temporaryPassword()
   const id = newId('usr')
   const db = createPool(dbUrl())
   try {
-    await withTx(db, async (tx) => {
+    const sent = await withTx(db, async (tx) => {
       await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
       if (onlyIfNoAdmin) {
         const admins = Number((await tx.query<{ n: string }>('SELECT count(*) AS n FROM users WHERE is_admin')).rows[0]?.n ?? 0)
         if (admins > 0) throw new Error('Un administrateur existe déjà. Utilisez create-user, ou grant-admin en cas de perte d’accès.')
       }
+      const org = await getOrganization(tx)
+      const external = isExternalEmail(email, org.domains)
       await tx.query(
         `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-        [id, email, name, initialsOf(name), flag('title') ?? '', role, isAdmin, await hashPassword(temp)],
+        [id, email, name, initialsOf(name), flag('title') ?? '', role, isAdmin, await hashPassword(temp ?? newToken())],
       )
-      await logEvent(tx, id, 'Compte créé', `${name} <${email}>, rôle ${role}${isAdmin ? ' + administrateur' : ''} (ligne de commande)`)
+      await logEvent(
+        tx,
+        id,
+        'Compte créé',
+        `${name} <${email}>${external ? ' (externe)' : ''}, rôle ${role}${isAdmin ? ' + administrateur' : ''} (ligne de commande)`,
+      )
+      if (!config) return null
+      const issued = await issueToken(tx, id, 'invite', id, config.inviteTtlHours)
+      await logEvent(tx, id, 'Invitation envoyée', `${name} <${email}>, lien valable ${config.inviteTtlHours} h (ligne de commande)`)
+      // Envoi dans la transaction : en cas d'échec SMTP, le compte n'est pas créé et la commande peut être relancée.
+      await createSmtpMailer(config.smtp!).send(
+        invitationMessage(config, {
+          purpose: 'invite',
+          to: email,
+          name,
+          invitedBy: 'L’administrateur de l’application',
+          organization: org.name,
+          ...issued,
+        }),
+      )
+      return issued.expiresAt
     })
+    if (sent) console.log(`Invitation envoyée à ${email}, lien valable jusqu’au ${sent.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}.`)
   } catch (e) {
     if ((e as { code?: string }).code === '23505') throw new Error('Un compte existe déjà pour cet e-mail.')
     throw e
@@ -87,10 +123,14 @@ async function main() {
       const temp = await insertUser(email, name, role, true, true)
       const origin = process.env.PUBLIC_ORIGIN
       console.log(`Administrateur créé : ${name} <${email}>, rôle métier ${role}.`)
-      console.log(`Mot de passe temporaire (affiché une seule fois) : ${temp}`)
+      if (temp) console.log(`Mot de passe temporaire (affiché une seule fois) : ${temp}`)
       console.log('')
       console.log('Étapes suivantes :')
-      console.log(`  1. Connectez-vous${origin ? ` sur ${origin}` : ''}, changez le mot de passe et activez la double authentification.`)
+      console.log(
+        temp
+          ? `  1. Connectez-vous${origin ? ` sur ${origin}` : ''}, changez le mot de passe et activez la double authentification.`
+          : '  1. Ouvrez le lien reçu par e-mail, choisissez le mot de passe et activez la double authentification.',
+      )
       console.log('  2. L’assistant d’installation demande le nom de l’organisme et propose des données de départ.')
       console.log('  3. Créez les comptes de l’équipe (Administration > Utilisateurs) et attribuez les rôles.')
       return
@@ -103,7 +143,7 @@ async function main() {
       const admin = has('admin')
       const temp = await insertUser(email, name, role, admin)
       console.log(`Compte créé pour ${name} <${email}> (${role}${admin ? ', administrateur' : ''}).`)
-      console.log(`Mot de passe temporaire (à changer à la première connexion) : ${temp}`)
+      if (temp) console.log(`Mot de passe temporaire (à changer à la première connexion) : ${temp}`)
       console.log('La double authentification (TOTP) sera configurée à la première connexion.')
       return
     }
@@ -174,7 +214,9 @@ async function main() {
     }
 
     default:
-      console.log('Commandes : migrate | init --email E --name N [--role R] | create-user --email E --name N --role R [--title T] [--admin] | grant-admin --email E | verify-history | seed-demo')
+      console.log(
+        'Commandes : migrate | init --email E --name N [--role R] [--invite] | create-user --email E --name N --role R [--title T] [--admin] [--invite] | grant-admin --email E | verify-history | seed-demo',
+      )
       process.exitCode = command ? 1 : 0
   }
 }

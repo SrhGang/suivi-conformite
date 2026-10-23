@@ -8,17 +8,28 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { addEvidence, can, loadStarterGaps } from '../../src/store/actions'
 import type { ComplianceState, EvidenceTypeId, Role, User } from '../../src/types'
+import { isExternalEmail, isValidDomain } from '../../src/utils/domains'
 import { ACTIONS } from './actions'
 import { registerAuth, requireAdmin, requireFull } from './auth'
 import type { Config } from './config'
 import { WRITE_LOCK_KEY, withTx, type Db, type Tx } from './db'
 import { logEvent, verifyHistory } from './history'
-import { hashPassword, initialsOf, newId, temporaryPassword } from './security'
-import { completeSetup, ensureOrganization, getSetup, loadState, persistChanges, saveOrganization } from './state'
+import { invitationMessage, issueToken, testMessage, type TokenPurpose } from './invitations'
+import { createSmtpMailer, type Mailer } from './mailer'
+import { hashPassword, initialsOf, newId, newToken, temporaryPassword } from './security'
+import { completeSetup, ensureOrganization, getOrganization, getSetup, loadState, persistChanges, saveOrganization } from './state'
 
 const EVIDENCE_TYPES: EvidenceTypeId[] = ['capture', 'certificat', 'rapport', 'procedure', 'journal', 'autre']
 
-export async function buildApp(db: Db, config: Config): Promise<FastifyInstance> {
+/**
+ * `mailer` : relais d'envoi des invitations (par défaut celui de la configuration SMTP).
+ * Sans relais, les comptes reçoivent un mot de passe temporaire affiché à l'administrateur.
+ */
+export async function buildApp(
+  db: Db,
+  config: Config,
+  mailer: Mailer | null = config.smtp ? createSmtpMailer(config.smtp) : null,
+): Promise<FastifyInstance> {
   const app = Fastify({
     trustProxy: config.trustProxy,
     bodyLimit: 1024 * 1024,
@@ -152,17 +163,35 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
   /* Première installation et organisme (administrateur)            */
   /* -------------------------------------------------------------- */
 
-  const organizationSchema = z.object({ name: z.string().trim().min(2).max(160), sector: z.string().trim().max(200) }).strict()
+  const organizationSchema = z
+    .object({
+      name: z.string().trim().min(2).max(160),
+      sector: z.string().trim().max(200),
+      domains: z.array(z.string().trim().toLowerCase().refine(isValidDomain)).max(20).optional(),
+    })
+    .strict()
 
   app.put('/api/organization', async (req, reply) => {
     const auth = requireAdmin(req, reply)
     if (!auth) return
     const body = organizationSchema.safeParse(req.body)
-    if (!body.success) return reply.code(400).send({ ok: false, error: 'Le nom de l’organisme est obligatoire (2 caractères minimum).' })
+    if (!body.success) {
+      const badDomain = body.error.issues.some((i) => i.path[0] === 'domains')
+      return reply
+        .code(400)
+        .send({ ok: false, error: badDomain ? 'Domaine e-mail invalide (exemple : regie-eaux.fr).' : 'Le nom de l’organisme est obligatoire (2 caractères minimum).' })
+    }
     await withTx(db, async (tx) => {
       await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
-      await saveOrganization(tx, body.data)
-      await logEvent(tx, auth.id, 'Organisme modifié', `${body.data.name}${body.data.sector ? `, ${body.data.sector}` : ''}`)
+      const previous = await getOrganization(tx)
+      const org = { ...body.data, domains: [...new Set(body.data.domains ?? previous.domains ?? [])] }
+      await saveOrganization(tx, org)
+      await logEvent(
+        tx,
+        auth.id,
+        'Organisme modifié',
+        `${org.name}${org.sector ? `, ${org.sector}` : ''}${org.domains.length ? ` ; domaines : ${org.domains.join(', ')}` : ''}`,
+      )
     })
     return { ok: true }
   })
@@ -198,11 +227,57 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
     if (!requireAdmin(req, reply)) return
     const { rows } = await db.query(
       `SELECT id, email, name, initials, title, role, is_admin, disabled, totp_enabled, must_change_password, last_login_at, created_at,
-              (locked_until IS NOT NULL AND locked_until > now()) AS locked
+              (locked_until IS NOT NULL AND locked_until > now()) AS locked,
+              (SELECT max(t.expires_at) FROM user_tokens t WHERE t.user_id = users.id AND t.used_at IS NULL AND t.expires_at > now()) AS invite_expires_at
        FROM users ORDER BY name`,
     )
-    return { ok: true, users: rows }
+    return { ok: true, users: rows, smtpConfigured: mailer !== null }
   })
+
+  /* -------------------------------------------------------------- */
+  /* Invitations par e-mail                                         */
+  /* -------------------------------------------------------------- */
+
+  const organizationName = async () => (await getOrganization(db)).name
+
+  /**
+   * Envoie l'e-mail d'un jeton déjà enregistré (après validation de la transaction).
+   * Un échec est journalisé et signalé à l'administrateur, qui pourra renvoyer l'invitation.
+   */
+  const sendInvitation = async (
+    by: { id: string; name: string },
+    target: { name: string; email: string },
+    purpose: TokenPurpose,
+    issued: { token: string; expiresAt: Date },
+  ) => {
+    const message = invitationMessage(config, {
+      purpose,
+      to: target.email,
+      name: target.name,
+      invitedBy: by.name,
+      organization: await organizationName(),
+      ...issued,
+    })
+    try {
+      await mailer!.send(message)
+      return { email: target.email, expiresAt: issued.expiresAt.toISOString(), sent: true as const }
+    } catch (e) {
+      app.log.error({ err: e, to: target.email }, 'échec d’envoi d’e-mail')
+      await withTx(db, async (tx) => {
+        await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+        await logEvent(tx, by.id, 'Échec d’envoi d’invitation', `${target.name} <${target.email}>`)
+      })
+      return {
+        email: target.email,
+        expiresAt: issued.expiresAt.toISOString(),
+        sent: false as const,
+        error: 'L’e-mail n’a pas pu être envoyé. Vérifiez la configuration SMTP puis renvoyez l’invitation.',
+      }
+    }
+  }
+
+  /** Condensé d'un secret jeté aussitôt : aucune connexion par mot de passe avant l'acceptation. */
+  const unusablePasswordHash = () => hashPassword(newToken())
 
   app.post('/api/users', async (req, reply) => {
     const auth = requireAdmin(req, reply)
@@ -219,22 +294,29 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
       .safeParse(req.body)
     if (!body.success) return reply.code(400).send({ ok: false, error: 'Données invalides (e-mail, nom et rôle obligatoires).' })
     const { email, name, title, role, isAdmin } = body.data
-    const temp = temporaryPassword()
+    const temp = mailer ? null : temporaryPassword()
     const id = newId('usr')
+    let issued: { token: string; expiresAt: Date } | null = null
     try {
       await withTx(db, async (tx) => {
         await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+        const external = isExternalEmail(email, (await getOrganization(tx)).domains)
         await tx.query(
           `INSERT INTO users (id, email, name, initials, title, role, is_admin, password_hash, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-          [id, email, name, initialsOf(name), title, role, isAdmin, await hashPassword(temp)],
+          [id, email, name, initialsOf(name), title, role, isAdmin, temp ? await hashPassword(temp) : await unusablePasswordHash()],
         )
-        await logEvent(tx, auth.id, 'Compte créé', `${name} <${email}>, rôle ${describeRole(role, isAdmin)}`)
+        await logEvent(tx, auth.id, 'Compte créé', `${name} <${email}>${external ? ' (externe)' : ''}, rôle ${describeRole(role, isAdmin)}`)
+        if (!temp) {
+          issued = await issueToken(tx, id, 'invite', auth.id, config.inviteTtlHours)
+          await logEvent(tx, auth.id, 'Invitation envoyée', `${name} <${email}>, lien valable ${config.inviteTtlHours} h`)
+        }
       })
     } catch (e) {
       if ((e as { code?: string }).code === '23505') return reply.code(409).send({ ok: false, error: 'Un compte existe déjà pour cet e-mail.' })
       throw e
     }
-    return { ok: true, id, temporaryPassword: temp }
+    if (temp) return { ok: true, id, temporaryPassword: temp }
+    return { ok: true, id, invitation: await sendInvitation(auth, { name, email }, 'invite', issued!) }
   })
 
   /** Vrai s'il ne reste aucun autre administrateur actif que `excludingId`. */
@@ -298,21 +380,70 @@ export async function buildApp(db: Db, config: Config): Promise<FastifyInstance>
   app.post<{ Params: { id: string } }>('/api/users/:id/reset', async (req, reply) => {
     const auth = requireAdmin(req, reply)
     if (!auth) return
-    const temp = temporaryPassword()
+    const temp = mailer ? null : temporaryPassword()
     const res = await withTx(db, async (tx) => {
-      const target = (await tx.query<{ name: string }>('SELECT name FROM users WHERE id = $1', [req.params.id])).rows[0]
-      if (!target) return false
+      await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+      const target = (await tx.query<{ name: string; email: string }>('SELECT name, email FROM users WHERE id = $1', [req.params.id])).rows[0]
+      if (!target) return null
       await tx.query(
         `UPDATE users SET password_hash = $2, must_change_password = true, totp_secret = NULL, totp_enabled = false, totp_last_step = NULL,
                 failed_attempts = 0, locked_until = NULL WHERE id = $1`,
-        [req.params.id, await hashPassword(temp)],
+        [req.params.id, temp ? await hashPassword(temp) : await unusablePasswordHash()],
       )
       await tx.query('DELETE FROM sessions WHERE user_id = $1', [req.params.id])
-      await logEvent(tx, auth.id, 'Accès réinitialisé', `${target.name} : nouveau mot de passe temporaire et MFA à réenrôler`)
-      return true
+      if (temp) {
+        await tx.query('DELETE FROM user_tokens WHERE user_id = $1 AND used_at IS NULL', [req.params.id])
+        await logEvent(tx, auth.id, 'Accès réinitialisé', `${target.name} : nouveau mot de passe temporaire et MFA à réenrôler`)
+        return { target, issued: null }
+      }
+      const issued = await issueToken(tx, req.params.id, 'reset', auth.id, config.inviteTtlHours)
+      await logEvent(tx, auth.id, 'Accès réinitialisé', `${target.name} : lien de réinitialisation envoyé par e-mail et MFA à réenrôler`)
+      return { target, issued }
     })
     if (!res) return reply.code(404).send({ ok: false, error: 'Compte introuvable.' })
-    return { ok: true, temporaryPassword: temp }
+    if (temp) return { ok: true, temporaryPassword: temp }
+    return { ok: true, invitation: await sendInvitation(auth, res.target, 'reset', res.issued!) }
+  })
+
+  /** Renvoie une invitation à un compte jamais activé (lien expiré, e-mail perdu…). */
+  app.post<{ Params: { id: string } }>('/api/users/:id/invite', async (req, reply) => {
+    const auth = requireAdmin(req, reply)
+    if (!auth) return
+    if (!mailer) return reply.code(400).send({ ok: false, error: 'L’envoi d’e-mails n’est pas configuré (SMTP).' })
+    type Outcome = { error: string; status: number } | { target: { name: string; email: string }; issued: { token: string; expiresAt: Date } }
+    const res = await withTx(db, async (tx): Promise<Outcome> => {
+      await tx.query('SELECT pg_advisory_xact_lock($1)', [WRITE_LOCK_KEY])
+      const target = (
+        await tx.query<{ name: string; email: string; must_change_password: boolean; disabled: boolean }>(
+          'SELECT name, email, must_change_password, disabled FROM users WHERE id = $1',
+          [req.params.id],
+        )
+      ).rows[0]
+      if (!target) return { status: 404, error: 'Compte introuvable.' }
+      if (target.disabled) return { status: 400, error: 'Ce compte est désactivé.' }
+      if (!target.must_change_password) return { status: 400, error: 'Ce compte est déjà activé : utilisez « Réinitialiser l’accès ».' }
+      // Le mot de passe temporaire éventuel (ancien fonctionnement) est remplacé par le lien.
+      await tx.query('UPDATE users SET password_hash = $2 WHERE id = $1', [req.params.id, await unusablePasswordHash()])
+      const issued = await issueToken(tx, req.params.id, 'invite', auth.id, config.inviteTtlHours)
+      await logEvent(tx, auth.id, 'Invitation renvoyée', `${target.name} <${target.email}>, lien valable ${config.inviteTtlHours} h`)
+      return { target, issued }
+    })
+    if ('error' in res) return reply.code(res.status).send({ ok: false, error: res.error })
+    return { ok: true, invitation: await sendInvitation(auth, res.target, 'invite', res.issued) }
+  })
+
+  /** E-mail de test vers l'administrateur connecté, pour valider la configuration SMTP. */
+  app.post('/api/admin/smtp/test', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (req, reply) => {
+    const auth = requireAdmin(req, reply)
+    if (!auth) return
+    if (!mailer) return reply.code(400).send({ ok: false, error: 'L’envoi d’e-mails n’est pas configuré (SMTP).' })
+    try {
+      await mailer.send(testMessage(auth.email, await organizationName()))
+    } catch (e) {
+      app.log.error({ err: e }, 'échec de l’e-mail de test')
+      return reply.code(502).send({ ok: false, error: 'Échec de l’envoi : vérifiez SMTP_HOST, SMTP_PORT, l’identifiant et le mot de passe SMTP.' })
+    }
+    return { ok: true, sentTo: auth.email }
   })
 
   /** Intégrité du journal d'audit (administrateur, responsable ou lecteur/auditeur). */

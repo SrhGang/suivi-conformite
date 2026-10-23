@@ -15,6 +15,7 @@ import type {
   User,
 } from '../../src/types'
 import type { Db, Tx } from './db'
+import { emailDomain } from '../../src/utils/domains'
 import { appendHistory, rowToEntry } from './history'
 
 type Queryable = Db | Tx
@@ -74,6 +75,18 @@ export async function completeSetup(q: Queryable, userId: string): Promise<void>
 
 export const saveOrganization = (q: Queryable, org: Organization) => setMeta(q, 'organization', org)
 
+/**
+ * Organisme enregistré. Tant qu'aucun domaine n'a été saisi, celui de l'e-mail
+ * du premier administrateur est proposé (prérempli dans l'assistant et la page Utilisateurs).
+ */
+export async function getOrganization(q: Queryable): Promise<Organization> {
+  const org = await getMeta<Organization>(q, 'organization', { name: 'Mon organisme', sector: '' })
+  if (org.domains) return org
+  const first = await q.query<{ email: string }>('SELECT email FROM users WHERE is_admin ORDER BY created_at, id LIMIT 1')
+  const domain = first.rows[0] ? emailDomain(first.rows[0].email) : ''
+  return { ...org, domains: domain ? [domain] : [] }
+}
+
 /** État complet vu par l'utilisateur `currentUserId`. */
 export async function loadState(q: Queryable, currentUserId: string): Promise<ComplianceState> {
   // Requêtes séquentielles : une transaction n'accepte qu'une requête à la fois.
@@ -82,7 +95,7 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
   const remediations = await q.query<{ data: Remediation }>('SELECT data FROM remediations ORDER BY id')
   const evidence = await q.query<{ data: Evidence }>('SELECT data FROM evidence WHERE removed_at IS NULL ORDER BY id')
   const history = await q.query('SELECT id, gap_id, date, user_id, action, details FROM history ORDER BY seq')
-  const organization = await getMeta<Organization>(q, 'organization', { name: 'Mon organisme', sector: '' })
+  const organization = await getOrganization(q)
   const counters = await getMeta<Counters>(q, 'counters', DEFAULT_COUNTERS)
   const milestones = await getMeta<Milestone[]>(q, 'milestones', [])
   const lastUpdated = await getMeta<string>(q, 'lastUpdated', new Date(0).toISOString())

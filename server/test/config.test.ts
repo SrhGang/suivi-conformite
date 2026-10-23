@@ -44,4 +44,23 @@ describe('loadConfig', () => {
     process.env.DATABASE_URL = 'postgres://u:pw@localhost/db'
     expect(() => loadConfig()).toThrow(/APP_SECRET/)
   })
+
+  it('active le SMTP seulement si SMTP_HOST est renseigné (mot de passe en fichier)', () => {
+    process.env.APP_SECRET = 'b'.repeat(40)
+    process.env.DATABASE_URL = 'postgres://u:pw@localhost/db'
+    delete process.env.SMTP_HOST
+    expect(loadConfig().smtp).toBeNull()
+    expect(loadConfig().inviteTtlHours).toBe(24)
+
+    const dir = mkdtempSync(join(tmpdir(), 'cfg-'))
+    writeFileSync(join(dir, 'smtp'), 're_cle_api\n')
+    process.env.SMTP_HOST = 'smtp.resend.com'
+    process.env.SMTP_USER = 'resend'
+    process.env.SMTP_PASSWORD_FILE = join(dir, 'smtp')
+    process.env.SMTP_FROM = 'Conformité <no-reply@exemple.fr>'
+    expect(loadConfig().smtp).toEqual({ host: 'smtp.resend.com', port: 587, user: 'resend', password: 're_cle_api', from: 'Conformité <no-reply@exemple.fr>' })
+
+    delete process.env.SMTP_FROM
+    expect(() => loadConfig()).toThrow(/SMTP_FROM/)
+  })
 })
