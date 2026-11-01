@@ -74,6 +74,18 @@ const deny = (error: string, extra: { errors?: FieldErrors; blockers?: string[] 
   ...extra,
 })
 
+/**
+ * Contenu d'une lacune verrouillé : archivée (lecture seule), ou validée et
+ * l'utilisateur n'est pas responsable validant (séparation des tâches).
+ */
+const lockedGapError = (gap: Gap | undefined, user: User): string | null => {
+  if (!gap) return null
+  if (gap.archived) return 'Une lacune archivée est en lecture seule : restaurez-la au préalable.'
+  if (gap.status === 'validee' && !can(user, 'validate'))
+    return 'Lacune validée : seul un responsable validant peut la modifier ou la rouvrir.'
+  return null
+}
+
 const replaceGap = (state: ComplianceState, updated: Gap): Gap[] =>
   state.gaps.map((g) => (g.id === updated.id ? updated : g))
 
@@ -155,6 +167,8 @@ export function updateGap(state: ComplianceState, user: User, gapId: string, cha
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de modifier une lacune.')
   const gap = state.gaps.find((g) => g.id === gapId)
   if (!gap) return deny('Lacune introuvable.')
+  const locked = lockedGapError(gap, user)
+  if (locked) return deny(locked)
   const merged: Gap = { ...gap, ...changes }
   const errors = validateGapInput(merged)
   if (hasErrors(errors)) return deny('Formulaire incomplet.', { errors })
@@ -209,6 +223,7 @@ export function confirmGap(state: ComplianceState, user: User, gapId: string): A
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de confirmer une lacune.')
   const gap = state.gaps.find((g) => g.id === gapId)
   if (!gap) return deny('Lacune introuvable.')
+  if (gap.archived) return deny('Une lacune archivée est en lecture seule : restaurez-la au préalable.')
   if (!gap.toConfirm) return ok(state, gap)
   const { toConfirm: _, ...rest } = gap
   const updated: Gap = { ...rest, updatedAt: now(), updatedBy: user.id }
@@ -287,6 +302,7 @@ export function performReview(
   if (!can(user, 'review')) return deny('Seul un responsable validant peut effectuer une revue périodique.')
   const gap = state.gaps.find((g) => g.id === gapId)
   if (!gap) return deny('Lacune introuvable.')
+  if (gap.archived) return deny('Une lacune archivée est en lecture seule : restaurez-la au préalable.')
   if (gap.status !== 'validee') return deny('Seules les lacunes validées font l’objet d’une revue périodique.')
   const [reviewId, counters] = nextId(state, 'review', 'REV')
   const review: Review = { id: reviewId, date: now(), by: user.id, outcome, comment }
@@ -338,6 +354,8 @@ export function addRemediation(
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’ajouter une remédiation.')
   const gap = state.gaps.find((g) => g.id === gapId)
   if (!gap) return deny('Lacune introuvable.')
+  const locked = lockedGapError(gap, user)
+  if (locked) return deny(locked)
   const errors = validateRemediationInput(input)
   if (hasErrors(errors)) return deny('Formulaire incomplet.', { errors })
   const [id, counters] = nextId(state, 'remediation', 'IMP')
@@ -372,6 +390,8 @@ export function updateRemediation(
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de modifier une remédiation.')
   const rem = state.remediations.find((r) => r.id === remId)
   if (!rem) return deny('Remédiation introuvable.')
+  const locked = lockedGapError(state.gaps.find((g) => g.id === rem.gapId), user)
+  if (locked) return deny(locked)
   const merged = normalizeRemediation({ ...rem, ...changes })
   const errors = validateRemediationInput(merged)
   if (hasErrors(errors)) return deny(Object.values(errors)[0] ?? 'Formulaire incomplet.', { errors })
@@ -393,6 +413,8 @@ export function deleteRemediation(state: ComplianceState, user: User, remId: str
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas de supprimer une remédiation.')
   const rem = state.remediations.find((r) => r.id === remId)
   if (!rem) return deny('Remédiation introuvable.')
+  const locked = lockedGapError(state.gaps.find((g) => g.id === rem.gapId), user)
+  if (locked) return deny(locked)
   const next = { ...state, remediations: state.remediations.filter((r) => r.id !== remId) }
   return ok(withHistory(next, user, rem.gapId, 'Remédiation supprimée', `${remId} : ${rem.title}`), rem)
 }
@@ -403,7 +425,10 @@ export function deleteRemediation(state: ComplianceState, user: User, remId: str
 
 export function addEvidence(state: ComplianceState, user: User, gapId: string, input: EvidenceInput): ActionResult<Evidence> {
   if (!can(user, 'edit')) return deny('Votre rôle ne permet pas d’ajouter une preuve.')
-  if (!state.gaps.some((g) => g.id === gapId)) return deny('Lacune introuvable.')
+  const gap = state.gaps.find((g) => g.id === gapId)
+  if (!gap) return deny('Lacune introuvable.')
+  const locked = lockedGapError(gap, user)
+  if (locked) return deny(locked)
   if (!input.name?.trim()) return deny('Le nom de la preuve est obligatoire.')
   if (!input.dataUrl && !input.url && !input.size && !input.fileKey) return deny('Joignez un fichier ou indiquez un lien.')
   const [id, counters] = nextId(state, 'evidence', 'PRV')
@@ -428,6 +453,8 @@ export function removeEvidence(state: ComplianceState, user: User, evId: string)
   const ev = state.evidence.find((e) => e.id === evId)
   if (!ev) return deny('Preuve introuvable.')
   const gap = state.gaps.find((g) => g.id === ev.gapId)
+  const locked = lockedGapError(gap, user)
+  if (locked) return deny(locked)
   const remaining = state.evidence.filter((e) => e.gapId === ev.gapId && e.id !== evId)
   if (gap?.status === 'validee' && !remaining.length)
     return deny('Impossible de retirer la dernière preuve d’une lacune validée. Rouvrez la lacune au préalable.')

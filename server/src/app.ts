@@ -30,8 +30,11 @@ export async function buildApp(
   config: Config,
   mailer: Mailer | null = config.smtp ? createSmtpMailer(config.smtp) : null,
 ): Promise<FastifyInstance> {
+  // Nombre de sauts de confiance, comme proxy-addr.
+  const hops = config.trustProxy
+  const trustProxy = typeof hops === 'number' ? (_addr: string, hop: number) => hop < hops : hops
   const app = Fastify({
-    trustProxy: config.trustProxy,
+    trustProxy,
     bodyLimit: 1024 * 1024,
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
@@ -122,7 +125,7 @@ export async function buildApp(
     const typeField = file.fields.type
     const rawType = typeField && 'value' in typeField ? String(typeField.value) : 'autre'
     const type = EVIDENCE_TYPES.includes(rawType as EvidenceTypeId) ? (rawType as EvidenceTypeId) : 'autre'
-    const name = file.filename.replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 200) || 'preuve'
+    const name = file.filename.replace(/[\\/\p{Cc}\p{Cf}]/gu, '_').slice(0, 200) || 'preuve'
     const fileKey = newId('f')
     const path = join(config.uploadDir, fileKey)
     await writeFile(path, buffer, { flag: 'wx', mode: 0o600 })
@@ -167,7 +170,7 @@ export async function buildApp(
     .object({
       name: z.string().trim().min(2).max(160),
       sector: z.string().trim().max(200),
-      domains: z.array(z.string().trim().toLowerCase().refine(isValidDomain)).max(20).optional(),
+      domains: z.array(z.unknown()).max(20).pipe(z.array(z.string().trim().toLowerCase().refine(isValidDomain))).optional(),
     })
     .strict()
 
@@ -387,7 +390,7 @@ export async function buildApp(
       if (!target) return null
       await tx.query(
         `UPDATE users SET password_hash = $2, must_change_password = true, totp_secret = NULL, totp_enabled = false, totp_last_step = NULL,
-                failed_attempts = 0, locked_until = NULL WHERE id = $1`,
+                failed_attempts = 0, totp_failed_attempts = 0, locked_until = NULL WHERE id = $1`,
         [req.params.id, temp ? await hashPassword(temp) : await unusablePasswordHash()],
       )
       await tx.query('DELETE FROM sessions WHERE user_id = $1', [req.params.id])

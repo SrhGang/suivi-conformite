@@ -87,6 +87,17 @@ export async function getOrganization(q: Queryable): Promise<Organization> {
   return { ...org, domains: domain ? [domain] : [] }
 }
 
+/**
+ * Les adresses e-mail des comptes ne sont visibles que des administrateurs
+ * (comme dans `toPublicUser`) ; le journal chaîné n'est pas modifié, seule la
+ * vue renvoyée aux autres rôles est masquée.
+ */
+const EMAIL_IN_DETAILS = /\s*<[^<>\s@]+@[^<>\s]+>/g
+const maskEmails = (h: HistoryEntry): HistoryEntry => {
+  const details = h.details.replace(EMAIL_IN_DETAILS, '')
+  return details === h.details ? h : { ...h, details }
+}
+
 /** État complet vu par l'utilisateur `currentUserId`. */
 export async function loadState(q: Queryable, currentUserId: string): Promise<ComplianceState> {
   // Requêtes séquentielles : une transaction n'accepte qu'une requête à la fois.
@@ -100,6 +111,7 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
   const milestones = await getMeta<Milestone[]>(q, 'milestones', [])
   const lastUpdated = await getMeta<string>(q, 'lastUpdated', new Date(0).toISOString())
   const setup = await getSetup(q)
+  const viewerIsAdmin = users.rows.some((u) => u.id === currentUserId && u.is_admin)
   return {
     version: 1,
     organization,
@@ -108,7 +120,7 @@ export async function loadState(q: Queryable, currentUserId: string): Promise<Co
     gaps: gaps.rows.map((r) => r.data),
     remediations: remediations.rows.map((r) => r.data),
     evidence: evidence.rows.map((r) => r.data),
-    history: history.rows.map(rowToEntry),
+    history: viewerIsAdmin ? history.rows.map(rowToEntry) : history.rows.map(rowToEntry).map(maskEmails),
     milestones,
     counters: { ...DEFAULT_COUNTERS, ...counters },
     lastUpdated,

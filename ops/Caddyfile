@@ -3,11 +3,8 @@
 #  - domaine public : certificat Let's Encrypt (ports 80/443 joignables) ;
 #  - nom MagicDNS en *.ts.net : certificat délivré par Tailscale via le socket
 #    tailscaled (voir ops/compose.tailscale.yml).
-{
-	servers {
-		trusted_proxies static private_ranges
-	}
-}
+# Caddy est le point d'entrée : il transmet lui-même l'adresse du client à
+# l'API (TRUST_PROXY = 1 saut).
 
 {$DOMAIN} {
 	encode zstd gzip
