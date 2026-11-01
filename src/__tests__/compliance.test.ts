@@ -152,6 +152,27 @@ describe('actions métier', () => {
     const { result } = expectOk(A.updateRemediation(s, userById(s, 'u2'), 'IMP-001', { progress: 100 }))
     expect(result.status).toBe('valide')
   })
+
+  it('Kanban : une carte peut revenir dans « À faire » depuis toute colonne', () => {
+    const s = buildDemoData()
+    const u = userById(s, 'u2')
+    for (const from of ['en_cours', 'bloque', 'valide'] as const) {
+      const start = expectOk(A.updateRemediation(s, u, 'IMP-001', A.kanbanMoveChanges({ status: 'a_faire', progress: 0 }, from)))
+      expect(start.result.status).toBe(from)
+      const { result } = expectOk(A.updateRemediation(start.state, u, 'IMP-001', A.kanbanMoveChanges(start.result, 'a_faire')))
+      expect(result.status).toBe('a_faire')
+      expect(result.progress).toBe(0)
+    }
+  })
+
+  it('Kanban : une carte bloquée à 100 % déplacée « En cours » y reste', () => {
+    const s = buildDemoData()
+    const u = userById(s, 'u2')
+    const blocked = expectOk(A.updateRemediation(s, u, 'IMP-001', { status: 'bloque', progress: 100 }))
+    const { result } = expectOk(A.updateRemediation(blocked.state, u, 'IMP-001', A.kanbanMoveChanges(blocked.result, 'en_cours')))
+    expect(result.status).toBe('en_cours')
+    expect(result.progress).toBe(90)
+  })
 })
 
 describe('données de démonstration', () => {
