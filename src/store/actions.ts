@@ -20,6 +20,7 @@ import type {
   Permission,
   Remediation,
   RemediationInput,
+  RemediationStatusId,
   Review,
   ReviewOutcome,
   User,
@@ -343,6 +344,26 @@ const normalizeRemediation = (r: Remediation): Remediation => {
   else if (progress === 100 && status !== 'bloque') status = 'valide'
   else if (status === 'a_faire' && progress > 0) status = 'en_cours'
   return { ...r, status, progress }
+}
+
+/**
+ * Changements à appliquer quand une remédiation est déplacée dans une autre
+ * colonne du Kanban. L'avancement est ajusté pour que le statut choisi ne soit
+ * pas aussitôt corrigé par `normalizeRemediation` :
+ * - « À faire » remet l'avancement à 0 % (sinon la carte repartait « En cours ») ;
+ * - quitter « Validé » (ou 100 %) vers « En cours » ramène à 90 % (sinon elle
+ *   repartait « Validé »).
+ */
+export function kanbanMoveChanges(
+  r: Pick<Remediation, 'status' | 'progress'>,
+  status: RemediationStatusId,
+): Partial<RemediationInput> {
+  const changes: Partial<RemediationInput> = { status }
+  if (status === 'valide') changes.progress = 100
+  else if (status === 'a_faire') changes.progress = 0
+  else if (status !== 'bloque' && Number(r.progress) >= 100) changes.progress = 90
+  else if (r.status === 'valide') changes.progress = 90
+  return changes
 }
 
 export function addRemediation(

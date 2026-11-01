@@ -4,11 +4,12 @@ import RemediationForm from '../components/RemediationForm'
 import { CriticalityDot, EmptyState, LateBadge, Progress, RemTypeBadge, UserName } from '../components/ui'
 import { CRITICALITIES, CRITICALITY_BY_ID, REMEDIATION_STATUSES, REMEDIATION_STATUS_BY_ID } from '../data/constants'
 import { THEMES } from '../data/isoControls'
+import { kanbanMoveChanges } from '../store/actions'
 import { useCompliance } from '../store/ComplianceContext'
 import { activeGaps, isRemediationOverdue, themeOfGap, weightedScore } from '../utils/compliance'
 import { addDays, addMonths, diffDays, formatDate, parseDate, toISODate, today } from '../utils/dates'
 import { applyParamChanges, type ParamChanges } from '../utils/searchParams'
-import type { Gap, ISODate, Remediation, RemediationInput, RemediationStatusId } from '../types'
+import type { Gap, ISODate, Remediation, RemediationStatusId } from '../types'
 
 type SortDir = 'asc' | 'desc'
 type GapIndex = Record<string, Gap>
@@ -427,12 +428,9 @@ function Kanban({ items, gapIndex, onOpen }: { items: Remediation[]; gapIndex: G
     const r = items.find((x) => x.id === dragId)
     setDragId(null)
     if (!r || r.status === status) return
-    const changes: Partial<RemediationInput> = { status }
-    if (status === 'valide') changes.progress = 100
-    else if (r.status === 'valide') changes.progress = 90
-    const res = await updateRemediation(r.id, changes)
+    const res = await updateRemediation(r.id, kanbanMoveChanges(r, status))
     if (!res.ok) notify(res.error, 'error')
-    else notify(`${r.id} → ${REMEDIATION_STATUS_BY_ID[status].label}`)
+    else notify(`${r.id} → ${REMEDIATION_STATUS_BY_ID[status].label}${status === 'a_faire' && r.progress > 0 ? ' (avancement remis à 0 %)' : ''}`)
   }
 
   return (
