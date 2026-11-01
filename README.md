@@ -1,6 +1,20 @@
 # Suivi de conformité ISO 27001:2022 / NIS2-ANSSI
 
+<p align="center">
+  <img src="docs/captures/kanban.gif" alt="Démonstration : déplacement d'une remédiation dans le tableau Kanban" width="900">
+</p>
+
 Application React + TypeScript qui sert à recenser les mesures de cybersécurité non appliquées dans un organisme et à suivre leur correction jusqu'à la validation. Il sert aussi de document vivant : ce document est mis à jour à chaque action et peut être exporté.
+
+## Aperçu
+
+| Tableau de bord | Roadmap (Gantt) |
+| --- | --- |
+| [![Tableau de bord : score global, progression par thème ISO et alertes prioritaires](docs/captures/1-tableau-de-bord.png)](docs/captures/1-tableau-de-bord.png) | [![Roadmap : planning des remédiations en diagramme de Gantt](docs/captures/4-roadmap-gantt.png)](docs/captures/4-roadmap-gantt.png) |
+| **Tableau Kanban** | **Référentiel ISO ↔ NIS2** |
+| [![Tableau Kanban des remédiations par statut](docs/captures/5-kanban.png)](docs/captures/5-kanban.png) | [![Référentiel : couverture des exigences NIS2 par les mesures ISO 27001](docs/captures/6-referentiel.png)](docs/captures/6-referentiel.png) |
+
+Les captures montrent le jeu de démonstration (organisme fictif). Cliquer sur une image l'ouvre en taille réelle.
 
 ## Démarrage
 
