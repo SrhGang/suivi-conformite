@@ -17,12 +17,12 @@
     "@fastify/multipart": "^10.1.2",
     "@fastify/rate-limit": "^11.2.0",
     "@node-rs/argon2": "^2.2.1",
-    "fastify": "^5.12.5",
-    "nodemailer": "^10.0.12",
+    "fastify": "^5.12.6",
+    "nodemailer": "^10.3.1",
     "otpauth": "^9.5.2",
     "pg": "^8.23.0",
     "qrcode": "^1.5.4",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

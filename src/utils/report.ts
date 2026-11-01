@@ -114,7 +114,7 @@ export function buildReportHtml(state: ComplianceState): string {
             ? `<h4>Moyens mis en place</h4><table class="list"><thead><tr><th>ID</th><th>Action</th><th>Type</th><th>Statut</th><th>Avanc.</th><th>Cible</th><th>Responsable</th></tr></thead><tbody>${rems
                 .map(
                   (r) =>
-                    `<tr><td>${r.id}</td><td>${esc(r.title)}</td><td>${REMEDIATION_TYPE_BY_ID[r.type]?.label}</td><td>${REMEDIATION_STATUS_BY_ID[r.status]?.label}</td><td class="num">${r.progress} %</td><td>${formatDate(r.targetDate)}</td><td>${esc(userName(state, r.owner))}</td></tr>`,
+                    `<tr><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${REMEDIATION_TYPE_BY_ID[r.type]?.label}</td><td>${REMEDIATION_STATUS_BY_ID[r.status]?.label}</td><td class="num">${esc(r.progress)} %</td><td>${formatDate(r.targetDate)}</td><td>${esc(userName(state, r.owner))}</td></tr>`,
                 )
                 .join('')}</tbody></table>`
             : '<p class="muted">Aucune remédiation planifiée.</p>'
@@ -191,9 +191,14 @@ export const printReport = (state: ComplianceState): boolean => {
   return true
 }
 
-const csvCell = (v: unknown): string => `"${String(v ?? '').replace(/"/g, '""')}"`
+/** Cellule CSV ; une valeur commençant par = + - @ est préfixée d'une apostrophe. */
+const csvCell = (v: unknown): string => {
+  const raw = String(v ?? '')
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw
+  return `"${safe.replace(/"/g, '""')}"`
+}
 
-export const exportCsv = (state: ComplianceState): void => {
+export const buildCsv = (state: ComplianceState): string => {
   const header = ['ID', 'Titre', 'Thème', 'Mesures ISO', 'NIS2', 'Réf. ANSSI', 'Criticité', 'Statut', 'Avancement %', 'Échéance', 'Assigné à', 'Créé le', 'Archivée']
   const rows = state.gaps.map((g) => [
     g.id,
@@ -210,9 +215,11 @@ export const exportCsv = (state: ComplianceState): void => {
     g.createdAt.slice(0, 10),
     g.archived ? 'oui' : 'non',
   ])
-  const csv = '﻿' + [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n')
-  download(`lacunes-${toISODate(new Date())}.csv`, csv, 'text/csv;charset=utf-8')
+  return '﻿' + [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n')
 }
+
+export const exportCsv = (state: ComplianceState): void =>
+  download(`lacunes-${toISODate(new Date())}.csv`, buildCsv(state), 'text/csv;charset=utf-8')
 
 export const exportBackup = (state: ComplianceState): void =>
   download(`sauvegarde-conformite-${toISODate(new Date())}.json`, JSON.stringify(state, null, 2), 'application/json')

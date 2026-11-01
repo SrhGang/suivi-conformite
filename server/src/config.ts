@@ -27,6 +27,18 @@ const env = (name: string, fallback?: string): string => {
   return v
 }
 
+/**
+ * TRUST_PROXY : « true » ou absent = un seul saut (Caddy, seul point d'entrée) ;
+ * un entier = ce nombre de sauts ; sinon une liste d'adresses ou de sous-réseaux.
+ */
+export const parseTrustProxy = (raw: string | undefined): boolean | number | string => {
+  const v = (raw ?? '').trim().toLowerCase()
+  if (['', 'true', '1', 'yes', 'on'].includes(v)) return 1
+  if (['false', '0', 'no', 'off'].includes(v)) return false
+  if (/^\d+$/.test(v)) return Number(v)
+  return raw!.trim()
+}
+
 const bool = (name: string, fallback: boolean): boolean => {
   const v = process.env[name]
   if (v === undefined || v === '') return fallback
@@ -58,7 +70,8 @@ export interface Config {
   organizationSector: string
   /** Nom affiché dans l'application d'authentification (TOTP). */
   totpIssuer: string
-  trustProxy: boolean
+  /** Proxys de confiance : nombre de sauts, ou adresses/sous-réseaux. */
+  trustProxy: boolean | number | string
   /** Secret applicatif : chiffre les secrets TOTP stockés en base (AES-256-GCM). */
   appSecret: string
   /** Relais SMTP des invitations ; null : mot de passe temporaire affiché à l'administrateur. */
@@ -115,7 +128,7 @@ export function loadConfig(): Config {
     organizationName: env('ORG_NAME', 'Mon organisme'),
     organizationSector: process.env.ORG_SECTOR ?? '',
     totpIssuer: env('TOTP_ISSUER', 'Conformité ISO 27001'),
-    trustProxy: bool('TRUST_PROXY', true),
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     appSecret,
     smtp: loadSmtp(),
     inviteTtlHours: int('INVITE_TTL_HOURS', 24),

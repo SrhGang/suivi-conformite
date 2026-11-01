@@ -69,7 +69,8 @@ export default function GapDetail() {
   const evidence = state.evidence.filter((e) => e.gapId === gap.id)
   const history = state.history.filter((h) => h.gapId === gap.id)
   const late = isGapOverdue(gap)
-  const editable = can('edit') && !gap.archived
+  // Même règle que le serveur : lacune archivée en lecture seule, lacune validée réservée au responsable validant.
+  const editable = can('edit') && !gap.archived && (gap.status !== 'validee' || can('validate'))
   const blockers = validationBlockers(gap, state.evidence, currentUser)
   const counts: Partial<Record<TabId, number>> = { remediations: remediations.length, preuves: evidence.length, historique: history.length }
 

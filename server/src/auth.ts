@@ -113,6 +113,36 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     req.auth = { sessionId: s.id, stage: s.stage, id: s.user_id, email: s.email, name: s.name, role: s.role, isAdmin: s.is_admin }
   })
 
+  const isLocked = (user: { locked_until: Date | string | null }) =>
+    !!user.locked_until && new Date(user.locked_until).getTime() > Date.now()
+
+  /**
+   * Réserve un essai (mot de passe ou code TOTP) avant la vérification, en une
+   * seule requête. Renvoie null si le compte est verrouillé. Les compteurs
+   * repartent de zéro à l'expiration du verrou.
+   */
+  const reserveAttempt = async (userId: string, counter: 'failed_attempts' | 'totp_failed_attempts'): Promise<number | null> => {
+    const other = counter === 'failed_attempts' ? 'totp_failed_attempts' : 'failed_attempts'
+    const expired = 'locked_until IS NOT NULL AND locked_until <= now()'
+    const current = `(CASE WHEN ${expired} THEN 0 ELSE ${counter} END)`
+    const { rows } = await db.query<{ n: number }>(
+      `UPDATE users SET
+              ${counter} = ${current} + 1,
+              ${other} = CASE WHEN ${expired} THEN 0 ELSE ${other} END,
+              locked_until = CASE
+                WHEN ${current} + 1 >= $2::int THEN now() + make_interval(mins => $3::int)
+                WHEN ${expired} THEN NULL
+                ELSE locked_until END
+       WHERE id = $1 AND (locked_until IS NULL OR locked_until <= now()) AND ${current} < $2::int
+       RETURNING ${counter} AS n`,
+      [userId, MAX_FAILURES, LOCK_MINUTES],
+    )
+    return rows[0]?.n ?? null
+  }
+
+  const lockedReply = (reply: FastifyReply) =>
+    reply.code(423).send({ ok: false, error: `Compte temporairement verrouillé après ${MAX_FAILURES} échecs. Réessayez plus tard.` })
+
   const setStage = (sessionId: string, stage: Stage) => db.query('UPDATE sessions SET stage = $2 WHERE id = $1', [sessionId, stage])
 
   const loadUser = async (id: string) =>
@@ -149,23 +179,24 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
       await dummyVerify(password)
       return refuse()
     }
-    if (user.locked_until && new Date(user.locked_until).getTime() > Date.now())
-      return reply.code(423).send({ ok: false, error: `Compte temporairement verrouillé après ${MAX_FAILURES} échecs. Réessayez plus tard.` })
-    const valid = await verifyPassword(user.password_hash, password)
-    if (!valid || user.disabled) {
-      if (!user.disabled) {
-        const failures = user.failed_attempts + 1
-        await db.query(
-          `UPDATE users SET failed_attempts = $2::int,
-                  locked_until = CASE WHEN $2::int >= $3::int THEN now() + make_interval(mins => $4::int) ELSE NULL END
-           WHERE id = $1`,
-          [user.id, failures, MAX_FAILURES, LOCK_MINUTES],
-        )
-        req.log.warn({ userId: user.id, failures }, 'échec de connexion')
-      }
+    if (user.disabled) {
+      await verifyPassword(user.password_hash, password)
       return refuse()
     }
-    await db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1', [user.id])
+    if (isLocked(user)) return lockedReply(reply)
+    const attempt = await reserveAttempt(user.id, 'failed_attempts')
+    if (attempt === null) return lockedReply(reply)
+    if (!(await verifyPassword(user.password_hash, password))) {
+      req.log.warn({ userId: user.id, failures: attempt }, 'échec de connexion')
+      return refuse()
+    }
+    // Mot de passe correct : seul son compteur repart à zéro. Le compteur TOTP
+    // (et un verrou qu'il a posé) n'est levé qu'après le second facteur.
+    await db.query(
+      `UPDATE users SET failed_attempts = 0,
+              locked_until = CASE WHEN totp_failed_attempts >= $2::int THEN locked_until ELSE NULL END WHERE id = $1`,
+      [user.id, MAX_FAILURES],
+    )
     const stage = nextStage(user)
     await openSession(req, reply, user.id, stage)
     return { ok: true, stage }
@@ -221,13 +252,17 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     const step = checkTotp(decryptSecret(config.appSecret, user.totp_secret), code)
     if (step === null) return false
     if (user.totp_last_step !== null && step <= Number(user.totp_last_step)) return false // code déjà utilisé
-    await db.query('UPDATE users SET totp_last_step = $2 WHERE id = $1', [user.id, step])
-    return true
+    // Écriture conditionnelle : un code n'est accepté qu'une fois.
+    const { rowCount } = await db.query('UPDATE users SET totp_last_step = $2 WHERE id = $1 AND (totp_last_step IS NULL OR totp_last_step < $2)', [
+      user.id,
+      step,
+    ])
+    return rowCount === 1
   }
 
   const completeLogin = async (auth: SessionUser) => {
     await setStage(auth.sessionId, 'full')
-    await db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [auth.id])
+    await db.query('UPDATE users SET last_login_at = now(), failed_attempts = 0, totp_failed_attempts = 0, locked_until = NULL WHERE id = $1', [auth.id])
   }
 
   app.post('/api/auth/totp/enroll', authRate, async (req, reply) => {
@@ -247,8 +282,16 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
     if (!auth) return
     const body = codeBody.safeParse(req.body)
     const user = await loadUser(auth.id)
-    if (!body.success || !user || !(await acceptTotp(user, body.data.code))) {
-      req.log.warn({ userId: auth.id }, 'code TOTP refusé')
+    if (!user) return reply.code(401).send({ ok: false, error: 'Session invalide.' })
+    // Essais limités par compte.
+    const attempt = await reserveAttempt(user.id, 'totp_failed_attempts')
+    if (attempt === null) {
+      await db.query('DELETE FROM sessions WHERE user_id = $1 AND stage <> $2', [user.id, 'full'])
+      return lockedReply(reply)
+    }
+    if (!body.success || !(await acceptTotp(user, body.data.code))) {
+      req.log.warn({ userId: auth.id, failures: attempt }, 'code TOTP refusé')
+      if (attempt >= MAX_FAILURES) await db.query('DELETE FROM sessions WHERE user_id = $1 AND stage <> $2', [user.id, 'full'])
       return reply.code(400).send({ ok: false, error: 'Code incorrect.' })
     }
     await completeLogin(auth)
@@ -277,7 +320,7 @@ export function registerAuth(app: FastifyInstance, db: Db, config: Config) {
       const problem = passwordProblem(body.data.newPassword, found.email)
       if (problem) return { error: problem }
       await tx.query(
-        'UPDATE users SET password_hash = $2, must_change_password = false, failed_attempts = 0, locked_until = NULL WHERE id = $1',
+        'UPDATE users SET password_hash = $2, must_change_password = false, failed_attempts = 0, totp_failed_attempts = 0, locked_until = NULL WHERE id = $1',
         [found.userId, await hashPassword(body.data.newPassword)],
       )
       await tx.query('UPDATE user_tokens SET used_at = now() WHERE id = $1', [found.id])

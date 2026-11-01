@@ -10,6 +10,8 @@ import * as A from '../../src/store/actions'
 import type { ActionResult, ComplianceState, User } from '../../src/types'
 
 const id = z.string().min(1).max(40)
+/** Tableau dont la longueur est vérifiée avant les éléments : un tableau géant est refusé sans être parcouru. */
+const boundedArray = <T extends z.ZodType>(item: T, max: number) => z.array(z.unknown()).max(max).pipe(z.array(item))
 const text = (max: number) => z.string().max(max)
 /** Argument facultatif : JSON transforme `undefined` en `null` dans un tableau. */
 const opt = <T extends z.ZodType>(schema: T) => schema.nullish().transform((v) => v ?? undefined)
@@ -27,8 +29,8 @@ const gapInput = z
   .object({
     title: text(300),
     description: text(5000).optional(),
-    controlIds: z.array(controlId).max(20),
-    nis2Refs: z.array(nis2).max(12).optional(),
+    controlIds: boundedArray(controlId, 20),
+    nis2Refs: boundedArray(nis2, 12).optional(),
     anssiRef: text(500).optional(),
     criticality,
     impact: text(2000).optional(),
@@ -89,7 +91,7 @@ export const ACTIONS: Record<string, Handler> = {
   deleteRemediation: action(z.tuple([id]), A.deleteRemediation),
   addEvidence: action(z.tuple([id, evidenceLinkInput]), A.addEvidence),
   removeEvidence: action(z.tuple([id]), A.removeEvidence),
-  updateMilestones: action(z.tuple([z.array(milestone).max(20)]), A.updateMilestones),
+  updateMilestones: action(z.tuple([boundedArray(milestone, 20)]), A.updateMilestones),
 }
 
 export type ActionName = keyof typeof ACTIONS

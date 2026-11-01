@@ -39,7 +39,7 @@ export default function EvidencePanel({ gap }: { gap: Gap }) {
   const [removing, setRemoving] = useState<Evidence | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const editable = can('edit') && !gap.archived
+  const editable = can('edit') && !gap.archived && (gap.status !== 'validee' || can('validate'))
 
   const upload = async (files: FileList | null) => {
     if (!files) return

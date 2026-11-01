@@ -376,6 +376,160 @@ run('API (PostgreSQL)', () => {
     expect(res.status).toBe(423)
   })
 
+  /* ------------------------------------------------------------ */
+  /* Authentification, droits et fichiers                          */
+  /* ------------------------------------------------------------ */
+
+  let ipSeq = 0
+  const freshIp = () => `10.77.${Math.floor(ipSeq / 250)}.${(ipSeq++ % 250) + 1}`
+  const PW = 'Une phrase de passe solide 2026'
+
+  /** Compte complet (mot de passe changé, TOTP enrôlé), depuis une IP dédiée. */
+  async function onboardFrom(id: string, email: string, role: string) {
+    await createUser(id, email, role)
+    const c = new Client(ORIGIN, freshIp())
+    await c.req('POST', '/api/auth/login', { email, password: 'Mot-de-passe-initial-42' })
+    await c.req('POST', '/api/auth/password', { newPassword: PW })
+    const setup = await c.req('GET', '/api/auth/totp/setup')
+    const enroll = await c.req('POST', '/api/auth/totp/enroll', { code: totpCode(setup.json.secret) })
+    expect(enroll.json.stage).toBe('full')
+    return { client: c, secret: setup.json.secret as string }
+  }
+
+  it('limite de débit : un seul saut de proxy de confiance', async () => {
+    const { loadConfig } = await import('../src/config')
+    const saved = { ...process.env }
+    process.env.APP_SECRET = 'z'.repeat(40)
+    process.env.DATABASE_URL = 'postgres://u:pw@localhost/db'
+    delete process.env.TRUST_PROXY
+    const defaults = loadConfig()
+    process.env = saved
+    const proxied = await buildApp(db, { ...config, trustProxy: defaults.trustProxy })
+    try {
+      const statuses: number[] = []
+      for (let i = 0; i < 12; i++) {
+        const res = await proxied.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          remoteAddress: '172.18.0.5',
+          headers: { origin: ORIGIN, 'x-forwarded-for': `10.9.0.${i}, 192.168.1.50` },
+          payload: { email: 'personne@test.fr', password: 'x' },
+        })
+        statuses.push(res.statusCode)
+      }
+      expect(statuses).toContain(429)
+    } finally {
+      await proxied.close()
+    }
+  })
+
+  it('verrouille le compte après 5 codes TOTP faux', async () => {
+    const { secret } = await onboardFrom('u_bf', 'bf@test.fr', 'contributeur')
+    const c = new Client(ORIGIN, freshIp())
+    expect((await c.req('POST', '/api/auth/login', { email: 'bf@test.fr', password: PW })).json.stage).toBe('totp')
+    for (let i = 0; i < 5; i++) {
+      const other = new Client(ORIGIN, freshIp())
+      other.cookie = c.cookie
+      await other.req('POST', '/api/auth/totp/verify', { code: '000000' })
+    }
+    const row = (await admin.query(`SELECT locked_until FROM users WHERE id = 'u_bf'`)).rows[0]
+    expect(row.locked_until).not.toBeNull()
+    const late = new Client(ORIGIN, freshIp())
+    late.cookie = c.cookie
+    expect((await late.req('POST', '/api/auth/totp/verify', { code: totpCode(secret, 1) })).status).not.toBe(200)
+    const again = new Client(ORIGIN, freshIp())
+    expect((await again.req('POST', '/api/auth/login', { email: 'bf@test.fr', password: PW })).status).toBe(423)
+  })
+
+  it('limite les essais de mot de passe, même simultanés', async () => {
+    await createUser('u_race', 'race@test.fr', 'lecteur')
+    const res = await Promise.all(
+      Array.from({ length: 12 }, () => new Client(ORIGIN, freshIp()).req('POST', '/api/auth/login', { email: 'race@test.fr', password: 'faux' })),
+    )
+    expect(res.filter((r) => r.status === 401).length).toBe(5)
+    const row = (await admin.query(`SELECT failed_attempts, locked_until FROM users WHERE id = 'u_race'`)).rows[0]
+    expect(row.failed_attempts).toBe(5)
+    expect(row.locked_until).not.toBeNull()
+  })
+
+  it('limite les essais de code TOTP, même simultanés', async () => {
+    await onboardFrom('u_bf2', 'bf2@test.fr', 'lecteur')
+    const c = new Client(ORIGIN, freshIp())
+    await c.req('POST', '/api/auth/login', { email: 'bf2@test.fr', password: PW })
+    const res = await Promise.all(
+      Array.from({ length: 20 }, () => {
+        const other = new Client(ORIGIN, freshIp())
+        other.cookie = c.cookie
+        return other.req('POST', '/api/auth/totp/verify', { code: '000000' })
+      }),
+    )
+    expect(res.filter((r) => r.status === 400).length).toBeLessThanOrEqual(5)
+  })
+
+  it('compteurs d’échecs séparés pour le mot de passe et le TOTP', async () => {
+    const { secret } = await onboardFrom('u_typo', 'typo@test.fr', 'lecteur')
+    for (let i = 0; i < 4; i++) await new Client(ORIGIN, freshIp()).req('POST', '/api/auth/login', { email: 'typo@test.fr', password: 'faux' })
+    const c = new Client(ORIGIN, freshIp())
+    expect((await c.req('POST', '/api/auth/login', { email: 'typo@test.fr', password: PW })).json.stage).toBe('totp')
+    expect((await c.req('POST', '/api/auth/totp/verify', { code: '000000' })).status).toBe(400)
+    expect((await c.req('POST', '/api/auth/totp/verify', { code: totpCode(secret, 1) })).json.stage).toBe('full')
+  })
+
+  it('un code TOTP n’est accepté qu’une fois', async () => {
+    const { secret } = await onboardFrom('u_replay', 'replay@test.fr', 'lecteur')
+    const a = new Client(ORIGIN, freshIp())
+    const b = new Client(ORIGIN, freshIp())
+    await a.req('POST', '/api/auth/login', { email: 'replay@test.fr', password: PW })
+    await b.req('POST', '/api/auth/login', { email: 'replay@test.fr', password: PW })
+    const code = totpCode(secret, 1)
+    const res = await Promise.all([a, b].map((c) => c.req('POST', '/api/auth/totp/verify', { code })))
+    expect(res.map((r) => r.status).sort()).toEqual([200, 400])
+  })
+
+  it('refuse les tableaux trop longs', async () => {
+    const res = await contrib.action('updateMilestones', Array(100_000).fill({}))
+    expect(res.status).toBe(400)
+    const big = await contrib.action('createGap', { title: 'x', controlIds: Array(100_000).fill('x'), criticality: 'basse', dueDate: '2030-01-01' })
+    expect(big.status).toBe(400)
+    expect(big.json.error).toMatch(/controlIds/)
+  })
+
+  it('lacune validée : modification réservée au responsable validant', async () => {
+    const state = (await resp.req('GET', '/api/state')).json.state
+    expect(state.gaps.find((g: { id: string }) => g.id === gapId).status).toBe('validee')
+    expect((await contrib.action('updateGap', gapId, { criticality: 'basse' })).status).toBe(400)
+    expect((await contrib.action('addEvidence', gapId, { name: 'x', url: 'https://exemple.fr' })).status).toBe(400)
+    const ev = state.evidence.find((e: { gapId: string }) => e.gapId === gapId)
+    expect((await contrib.action('removeEvidence', ev.id)).status).toBe(400)
+    expect((await contrib.action('addRemediation', gapId, { title: 'x', type: 'outil', targetDate: '2030-01-01' })).status).toBe(400)
+    const rem = state.remediations.find((r: { gapId: string }) => r.gapId === gapId)
+    if (rem) {
+      expect((await contrib.action('updateRemediation', rem.id, { progress: 10 })).status).toBe(400)
+      expect((await contrib.action('deleteRemediation', rem.id)).status).toBe(400)
+    }
+  })
+
+  it('historique : e-mails visibles des administrateurs seulement', async () => {
+    const { client: lect } = await onboardFrom('u_lect2', 'lecteur2@test.fr', 'lecteur')
+    const history = JSON.stringify((await lect.req('GET', '/api/state')).json.state.history)
+    expect(history).not.toMatch(/@test\.fr/)
+    // L'administrateur, lui, garde l'information.
+    expect(JSON.stringify((await adm.req('GET', '/api/state')).json.state.history)).toMatch(/@test\.fr/)
+  })
+
+  it('nettoie le nom des fichiers de preuve', async () => {
+    const created = await contrib.action('createGap', { title: 'Bidi', controlIds: ['5.1'], criticality: 'basse', dueDate: '2030-01-01' })
+    const boundary = '----bidi'
+    const payload = Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="rapport‮fdp.exe"\r\nContent-Type: application/pdf\r\n\r\nX\r\n--${boundary}--\r\n`,
+    )
+    const up = await contrib.req('POST', `/api/gaps/${created.json.result.id}/evidence`, payload, {
+      'content-type': `multipart/form-data; boundary=${boundary}`,
+    })
+    expect(up.status).toBe(200)
+    expect(up.json.result.name).not.toContain('‮')
+  })
+
   it('journal d’audit : ajout seul et altération détectée', async () => {
     expect((await verifyHistory(db)).ok).toBe(true)
     // Le rôle applicatif n'a pas le droit de modifier le journal…
