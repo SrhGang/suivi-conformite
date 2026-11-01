@@ -1,0 +1,14 @@
+#!/bin/sh
+# Retire du message de commit les lignes d'attribution ajoutées par les
+# agents (Co-Authored-By: Claude, Claude-Session, « Generated with Claude
+# Code », liens de session). Activé par `npm install` (script « prepare »)
+# ou à la main : git config core.hooksPath .githooks
+msg_file="$1"
+patterns="$(git rev-parse --show-toplevel)/.githooks/attribution-patterns"
+[ -f "$msg_file" ] && [ -f "$patterns" ] || exit 0
+
+tmp="$msg_file.tmp.$$"
+grep -viE -f "$patterns" "$msg_file" > "$tmp" || true
+# Supprime les lignes vides laissées en fin de message.
+awk '{ lines[NR] = $0 } END { n = NR; while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--; for (i = 1; i <= n; i++) print lines[i] }' "$tmp" > "$msg_file"
+rm -f "$tmp"

@@ -9,6 +9,22 @@ permissions:
   contents: read
 
 jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aucune attribution Claude dans les commits et la PR
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git cat-file -e "$BASE^{commit}" 2>/dev/null || BASE="$HEAD~1"
+          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          scripts/verifier-attribution.sh "$BASE..$HEAD" "$RUNNER_TEMP/pr-body.md"
+
   frontend:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,5 @@
+^[[:space:]]*co-authored-by:.*(claude|anthropic)
+^[[:space:]]*claude-session:
+generated (with|by) \[claude code\]\(
+claude\.ai/code/session_
+claude\.com/claude-code
