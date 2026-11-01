@@ -4,11 +4,37 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
   contents: read
 
 jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aucune attribution Claude dans les commits et la PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git cat-file -e "$BASE^{commit}" 2>/dev/null || BASE="$HEAD~1"
+          # Description lue en direct, pour tenir compte d'une modification.
+          if [ -n "$PR" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.body // ""' > "$RUNNER_TEMP/pr-body.md"
+          else
+            : > "$RUNNER_TEMP/pr-body.md"
+          fi
+          scripts/verifier-attribution.sh "$BASE..$HEAD" "$RUNNER_TEMP/pr-body.md"
+
   frontend:
     runs-on: ubuntu-latest
     steps:

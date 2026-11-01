@@ -12,7 +12,8 @@
     "build:artifact": "node scripts/build-artifact.mjs",
     "typecheck": "tsc --noEmit",
     "dev:api": "VITE_BACKEND=api vite",
-    "build:api": "tsc --noEmit && VITE_BACKEND=api vite build"
+    "build:api": "tsc --noEmit && VITE_BACKEND=api vite build",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
