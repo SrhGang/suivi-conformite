@@ -1,7 +1,7 @@
 # Service systemd : déchiffre les secrets (systemd-creds) en mémoire puis démarre la pile Docker.
-#   sudo cp ops/systemd/conformite.service /etc/systemd/system/
+# Installation depuis le dossier du dépôt (WorkingDirectory est remplacé par ce dossier) :
+#   sed "s#^WorkingDirectory=.*#WorkingDirectory=$PWD#" ops/systemd/conformite.service | sudo tee /etc/systemd/system/conformite.service > /dev/null
 #   sudo systemctl daemon-reload && sudo systemctl enable --now conformite
-# Adapter WorkingDirectory si le dépôt n'est pas dans /opt/suivi-conformite.
 [Unit]
 Description=Suivi de conformité ISO 27001 (Docker Compose)
 Requires=docker.service
@@ -17,9 +17,10 @@ TimeoutStartSec=300
 LoadCredentialEncrypted=owner_db_password:/etc/credstore.encrypted/conformite.owner_db_password
 LoadCredentialEncrypted=app_db_password:/etc/credstore.encrypted/conformite.app_db_password
 LoadCredentialEncrypted=app_secret:/etc/credstore.encrypted/conformite.app_secret
-# Mot de passe SMTP facultatif (sudo ops/secrets.sh smtp) : vide si le fichier chiffré n'existe pas.
-SetCredential=smtp_password:
-LoadCredentialEncrypted=smtp_password:/etc/credstore.encrypted/conformite.smtp_password
+# Le mot de passe SMTP, facultatif, n'est pas chargé ici : un LoadCredentialEncrypted= vers un
+# fichier absent fait échouer le service (243/CREDENTIALS), « SetCredential=smtp_password: » (valeur
+# vide) et un chemin préfixé par « - » sont rejetés par systemd, qui ignore alors la ligne.
+# Il est déchiffré plus bas, seulement si sudo ops/secrets.sh smtp l'a créé.
 
 # /run est en mémoire : les secrets déchiffrés ne touchent jamais le disque
 # et sont effacés à l'arrêt du service.
@@ -31,7 +32,9 @@ RuntimeDirectoryMode=0700
 ExecStartPre=-/usr/bin/docker compose down
 # Si l'application n'écoute que sur l'IP Tailscale (BIND_ADDRESS), attend l'interface.
 ExecStartPre=/bin/sh -c 'ip link show tailscale0 > /dev/null 2>&1 || exit 0; for i in $(seq 60); do ip -4 addr show tailscale0 | grep -q inet && exit 0; sleep 1; done; exit 1'
-ExecStartPre=/bin/sh -c 'rm -rf /run/conformite/*; for n in owner_db_password app_db_password app_secret smtp_password; do install -m 0444 "$CREDENTIALS_DIRECTORY/$n" "/run/conformite/$n"; done'
+ExecStartPre=/bin/sh -c 'rm -rf /run/conformite/*; for n in owner_db_password app_db_password app_secret; do install -m 0444 "$CREDENTIALS_DIRECTORY/$n" "/run/conformite/$n"; done'
+# Docker exige que le fichier du secret smtp_password existe : vide sans relais SMTP.
+ExecStartPre=/bin/sh -c 'f=/etc/credstore.encrypted/conformite.smtp_password; o=/run/conformite/smtp_password; if [ -s "$f" ]; then systemd-creds decrypt --name=smtp_password "$f" "$o"; else : > "$o"; fi; chmod 0444 "$o"'
 ExecStart=/usr/bin/docker compose up -d --wait
 ExecStop=/usr/bin/docker compose down
 

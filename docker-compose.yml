@@ -69,7 +69,11 @@ services:
       - '${BIND_ADDRESS:-0.0.0.0}:443:443/udp'
     environment:
       DOMAIN: ${DOMAIN}
+      # Directive tls de Caddy (vide : certificat automatique). Voir ops/Caddyfile.
+      CADDY_TLS: ${CADDY_TLS:-}
     volumes:
+      # Monté plutôt que figé dans l'image : une modification ne demande pas de rebuild.
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]
