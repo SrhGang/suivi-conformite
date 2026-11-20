@@ -98,3 +98,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --target api -t conformite-api:ci .
       - run: docker build --target web -t conformite-web:ci .
+      - name: Caddyfile valide (certificat automatique, tls internal, fichiers)
+        run: |
+          for tls in "" "tls internal" "tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem"; do
+            echo "CADDY_TLS=[$tls]"
+            docker run --rm -e DOMAIN=conformite.lab.fr -e CADDY_TLS="$tls" \
+              -v "$PWD/ops/Caddyfile:/etc/caddy/Caddyfile:ro" conformite-web:ci \
+              caddy adapt --config /etc/caddy/Caddyfile > /dev/null
+          done

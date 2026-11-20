@@ -3,10 +3,20 @@
 #  - domaine public : certificat Let's Encrypt (ports 80/443 joignables) ;
 #  - nom MagicDNS en *.ts.net : certificat délivré par Tailscale via le socket
 #    tailscaled (voir ops/compose.tailscale.yml).
+#  - nom interne (lab, intranet) absent du DNS public : CADDY_TLS dans .env,
+#    sinon Caddy tente Let's Encrypt et échoue (NXDOMAIN). Voir ops/compose.tls-fichiers.yml.
 # Caddy est le point d'entrée : il transmet lui-même l'adresse du client à
 # l'API (TRUST_PROXY = 1 saut).
+#
+# Ce fichier est monté dans le conteneur (docker-compose.yml) : après une
+# modification, « docker compose up -d --force-recreate web » suffit, sans rebuild.
 
 {$DOMAIN} {
+	# Vide par défaut (certificat automatique). Exemples :
+	#   CADDY_TLS=tls internal   (autorité de certification interne de Caddy)
+	#   CADDY_TLS=tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
+	{$CADDY_TLS}
+
 	encode zstd gzip
 
 	header {

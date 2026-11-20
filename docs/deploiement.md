@@ -15,6 +15,7 @@ Deux choix indépendants :
 | | Option simple | Option recommandée |
 |---|---|---|
 | **Accès** | Domaine public + Let's Encrypt (ports 80/443 ouverts) | **Tailscale** : nom MagicDNS `*.ts.net`, rien d'exposé sur Internet |
+| | Nom interne (lab, intranet) : certificat fourni ou `tls internal` | |
 | **Secrets** | Fichiers dans `./secrets` (en clair, répertoire 0700) | **systemd-creds** : chiffrés au repos, déchiffrés en mémoire au démarrage |
 
 ## 1. Choisir la VM
@@ -82,6 +83,29 @@ Le pare-feu ne se ferme qu'à la fin de l'étape 3, une fois l'application en se
 
 Créez un enregistrement DNS `A`/`AAAA` vers l'IP publique et laissez `COMPOSE_FILE` et `BIND_ADDRESS` commentés dans `.env`.
 
+### Nom interne (lab, intranet)
+
+Un nom absent du DNS public, comme `conformite.lab.fr`, ne peut pas obtenir de certificat Let's Encrypt : sans réglage, Caddy le tente quand même et échoue avec `NXDOMAIN`. Indiquez-lui le certificat à utiliser avec `CADDY_TLS` dans `.env`.
+
+- **Certificat en fichiers** (PKI de l'organisme, certificat acheté, `mkcert`) : déposez `fullchain.pem` (certificat suivi des intermédiaires) et `privkey.pem` dans un répertoire de la VM, puis :
+  ```
+  DOMAIN=conformite.lab.fr
+  COMPOSE_FILE=docker-compose.yml:ops/compose.tls-fichiers.yml
+  TLS_CERT_DIR=/etc/ssl/conformite
+  CADDY_TLS=tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
+  ```
+  Pour un lab, `mkcert` produit un certificat et une autorité locale à installer sur les postes :
+  ```bash
+  sudo apt -y install mkcert
+  sudo mkdir -p /etc/ssl/conformite && cd /etc/ssl/conformite
+  sudo mkcert -cert-file fullchain.pem -key-file privkey.pem conformite.lab.fr
+  sudo chmod 700 /etc/ssl/conformite && sudo chmod 600 privkey.pem   # Caddy lit en root dans le conteneur
+  sudo mkcert -CAROOT     # rootCA.pem de ce dossier : à importer sur les postes
+  ```
+- **Autorité interne de Caddy** : `CADDY_TLS=tls internal`. Caddy crée et renouvelle seul son certificat ; l'autorité racine (`docker compose exec web cat /data/caddy/pki/authorities/local/root.crt`) est à importer sur les postes.
+
+Les postes doivent résoudre le nom vers la VM (DNS interne ou fichier `hosts`). Le `Caddyfile` est monté depuis le dépôt : une modification s'applique avec `docker compose up -d --force-recreate web` (ou `sudo systemctl restart conformite`), sans reconstruire l'image.
+
 ## 3. Installer l'application
 
 ```bash
@@ -109,7 +133,8 @@ SECRETS_DIR=/run/conformite
 ```bash
 sudo ops/secrets.sh systemd-creds          # génère et chiffre les 3 secrets, active SECRETS_DIR dans .env
 docker compose build
-sudo cp ops/systemd/conformite.service /etc/systemd/system/
+# Installe le service en pointant WorkingDirectory sur ce dossier.
+sed "s#^WorkingDirectory=.*#WorkingDirectory=$PWD#" ops/systemd/conformite.service | sudo tee /etc/systemd/system/conformite.service > /dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now conformite
 systemctl status conformite
@@ -118,7 +143,7 @@ curl https://conformite.<votre-tailnet>.ts.net/api/health
 
 À chaque démarrage, le service :
 1. déchiffre les secrets avec la clé de la machine ;
-2. les copie dans `/run/conformite`, qui est en mémoire ;
+2. les copie dans `/run/conformite`, qui est en mémoire (le mot de passe SMTP y est un fichier vide tant que `sudo ops/secrets.sh smtp` n'a pas été lancé) ;
 3. lance la pile ;
 4. efface les secrets à l'arrêt.
 
@@ -190,7 +215,7 @@ Sans configuration, la création d'un compte affiche un mot de passe temporaire 
 
 En ligne de commande, `init` et `create-user` acceptent `--invite` : le lien est envoyé par e-mail au lieu d'afficher un mot de passe temporaire (si l'envoi échoue, le compte n'est pas créé et la commande peut être relancée).
 
-Mise à jour d'une installation existante : relancez une fois `ops/secrets.sh generate` (ou copiez à nouveau `ops/systemd/conformite.service` si vous utilisez systemd-creds) pour créer le secret `smtp_password`, même vide.
+Mise à jour d'une installation existante : relancez une fois `ops/secrets.sh generate` pour créer le secret `smtp_password`, même vide. Avec systemd-creds, réinstallez le service (commande `sed … | sudo tee` de l'étape 3, puis `sudo systemctl daemon-reload`).
 
 ## 5. Sauvegardes
 
@@ -217,11 +242,21 @@ Testez une restauration dans une VM de recette au moins une fois par trimestre.
 
 | Besoin | Commande |
 |---|---|
-| Mettre à jour | `git pull && docker compose build && sudo systemctl restart conformite` (option simple : `git pull && docker compose up -d --build`) |
+| Mettre à jour | `git pull && docker compose build && sudo systemctl restart conformite` (option simple : `git pull && docker compose up -d --build`). Si `ops/systemd/conformite.service` a changé, réinstallez-le d'abord (étape 3) |
 | Journaux | `docker compose logs -f api` · `journalctl -u conformite` |
 | Vérifier l'intégrité du journal d'audit | bouton dans Administration, ou `docker compose exec api node dist/cli.js verify-history` |
 | Débloquer ou réinitialiser un compte | page Utilisateurs (« Réinitialiser l'accès ») |
 | Charger la démo dans une VM de test | `docker compose exec api node dist/cli.js seed-demo` |
+
+### Dépannage
+
+| Symptôme | Cause et correction |
+|---|---|
+| `conformite.service` échoue avec `status=243/CREDENTIALS` | Un secret chiffré manque dans `/etc/credstore.encrypted` (`sudo ls /etc/credstore.encrypted`) : relancez `sudo ops/secrets.sh systemd-creds`. Une ancienne version du service chargeait aussi `smtp_password`, absent sans relais SMTP : réinstallez le service (étape 3). |
+| `conformite.service` échoue avec `status=200/CHDIR` | `WorkingDirectory` ne pointe pas vers le dépôt : réinstallez le service avec la commande `sed … \| sudo tee` depuis le dossier du dépôt. |
+| `systemd-analyze verify /etc/systemd/system/conformite.service` signale « ignoring » | Ligne rejetée par systemd, donc sans effet : ne pas ajouter de `-` devant un chemin de `LoadCredentialEncrypted=` ni de `SetCredential=` à valeur vide. |
+| Caddy : `NXDOMAIN` ou échec ACME dans `docker compose logs web` | Nom absent du DNS public : réglez `CADDY_TLS` (« Nom interne », étape 2), puis `docker compose up -d --force-recreate web`. |
+| Une modification du `Caddyfile` n'a pas d'effet | Le conteneur garde l'ancienne version jusqu'à sa recréation : `docker compose up -d --force-recreate web`. |
 
 ## 7. Plusieurs VM
 

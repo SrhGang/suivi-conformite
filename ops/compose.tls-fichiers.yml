@@ -1,0 +1,11 @@
+# Certificat fourni sous forme de fichiers (PKI interne, mkcert, certificat acheté…),
+# pour un nom absent du DNS public (ex. conformite.lab.fr) : Caddy ne tente pas Let's Encrypt.
+# Activer en ajoutant dans .env :
+#   COMPOSE_FILE=docker-compose.yml:ops/compose.tls-fichiers.yml
+#   TLS_CERT_DIR=/etc/ssl/conformite          # contient fullchain.pem et privkey.pem
+#   CADDY_TLS=tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
+# Caddy tourne en root dans le conteneur : privkey.pem peut rester en 0600 (propriétaire root).
+services:
+  web:
+    volumes:
+      - ${TLS_CERT_DIR:?à définir dans .env}:/etc/caddy/certs:ro
